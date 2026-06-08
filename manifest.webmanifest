@@ -1,0 +1,18 @@
+{
+  "name": "Rent A Car Yönetim Paneli",
+  "short_name": "Rent A Car",
+  "start_url": "/rentecarWeb/index.php",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#101418",
+  "lang": "tr",
+  "scope": "/rentecarWeb/",
+  "icons": [
+    {
+      "src": "/rentecarWeb/assets/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
