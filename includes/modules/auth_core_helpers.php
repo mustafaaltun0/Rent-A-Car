@@ -731,7 +731,7 @@ function auth_user_avatar_filesystem_path(?array $user = null): ?string
     return auth_storage_relative_filesystem_path($relativePath, 'storage/user-avatars');
 }
 
-function auth_avatar_focus_value(mixed $value, int $fallback = 50): int
+function auth_avatar_focus_value($value, int $fallback = 50): int
 {
     if ($value === null || $value === '') {
         return $fallback;

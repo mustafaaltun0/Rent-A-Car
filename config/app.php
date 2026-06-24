@@ -5,6 +5,28 @@ if (function_exists('mb_internal_encoding')) {
     mb_internal_encoding('UTF-8');
 }
 
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return substr($haystack, 0, strlen($needle)) === $needle;
+    }
+}
+
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
 if (!function_exists('app_load_env_file')) {
     function app_load_env_file(string $filePath): void
     {

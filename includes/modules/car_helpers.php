@@ -30,7 +30,7 @@ function car_photo_axis_value(?string $value, array $allowed, string $fallback =
     return in_array($normalized, $allowed, true) ? $normalized : $fallback;
 }
 
-function car_photo_focus_value(mixed $value, int $fallback = 50): int
+function car_photo_focus_value($value, int $fallback = 50): int
 {
     if ($value === null || $value === '') {
         return $fallback;

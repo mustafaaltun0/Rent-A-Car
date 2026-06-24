@@ -73,11 +73,14 @@ require __DIR__ . '/includes/nav.php';
           <?php
             $targetUrl = notification_target_url($notification);
             $severity = (string) ($notification['severity'] ?? 'info');
-            $statusLabel = match ((string) ($notification['status'] ?? 'open')) {
-                'read' => 'Okundu',
-                'resolved' => 'Çözüldü',
-                default => 'Açık',
-            };
+            $statusValue = (string) ($notification['status'] ?? 'open');
+            if ($statusValue === 'read') {
+                $statusLabel = 'Okundu';
+            } elseif ($statusValue === 'resolved') {
+                $statusLabel = 'Çözüldü';
+            } else {
+                $statusLabel = 'Açık';
+            }
           ?>
           <tr>
             <td><span class="badge <?= $severity === 'danger' ? 'bg-danger' : ($severity === 'warning' ? 'bg-warning text-dark' : 'bg-info text-dark') ?>"><?= h($severity === 'danger' ? 'Kritik' : ($severity === 'warning' ? 'Takip' : 'Bilgi')) ?></span></td>
@@ -125,11 +128,14 @@ require __DIR__ . '/includes/nav.php';
         <?php
           $targetUrl = notification_target_url($notification);
           $severity = (string) ($notification['severity'] ?? 'info');
-          $statusLabel = match ((string) ($notification['status'] ?? 'open')) {
-              'read' => 'Okundu',
-              'resolved' => 'Çözüldü',
-              default => 'Açık',
-          };
+          $statusValue = (string) ($notification['status'] ?? 'open');
+          if ($statusValue === 'read') {
+              $statusLabel = 'Okundu';
+          } elseif ($statusValue === 'resolved') {
+              $statusLabel = 'Çözüldü';
+          } else {
+              $statusLabel = 'Açık';
+          }
         ?>
         <div class="collection-mobile-card <?= $severity === 'danger' ? 'is-danger' : ($severity === 'warning' ? 'is-warning' : '') ?>">
           <div class="d-flex justify-content-between align-items-start gap-3">
