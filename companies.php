@@ -9,7 +9,7 @@ ensureExpenseArchiveSchema($pdo);
 
 $entryStatus = $_GET['status'] ?? '';
 $currentCompanyId = auth_current_company_id();
-$roleOptions = auth_assignable_role_options(auth_current_user(), 0);
+$roleOptions = auth_assignable_role_options_db($pdo, auth_current_user(), 0);
 
 $companies = $pdo->query("
     SELECT
@@ -30,7 +30,31 @@ $companyUsers = [];
 if (!empty($companies)) {
     $companyIds = array_map('intval', array_column($companies, 'id'));
     $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
-    $usersSt = $pdo->prepare("SELECT id, company_id, full_name, username, role, is_active FROM users WHERE company_id IN ($placeholders) AND archived_at IS NULL ORDER BY company_id ASC, created_at ASC, id ASC");
+    $usersSt = $pdo->prepare("
+        SELECT
+            u.id,
+            u.company_id,
+            u.full_name,
+            u.username,
+            u.role,
+            u.custom_role_id,
+            u.is_active,
+            cr.name AS custom_role_name,
+            cr.description AS custom_role_description,
+            CASE
+                WHEN u.role = 'custom' AND cr.id IS NOT NULL AND cr.is_active = 1 AND cr.archived_at IS NULL THEN
+                    COALESCE((
+                        SELECT GROUP_CONCAT(DISTINCT crp.permission_key ORDER BY crp.permission_key SEPARATOR ',')
+                        FROM company_role_permissions crp
+                        WHERE crp.role_id = cr.id
+                    ), '')
+                ELSE ''
+            END AS custom_permissions_json
+        FROM users u
+        LEFT JOIN company_roles cr ON cr.id = u.custom_role_id AND cr.company_id = u.company_id
+        WHERE u.company_id IN ($placeholders) AND u.archived_at IS NULL
+        ORDER BY u.company_id ASC, u.created_at ASC, u.id ASC
+    ");
     $usersSt->execute($companyIds);
     foreach ($usersSt->fetchAll(PDO::FETCH_ASSOC) as $user) {
         $companyUsers[(int) $user['company_id']][] = $user;
@@ -45,7 +69,7 @@ $totalRentals = array_sum(array_map(static fn (array $company): int => (int) ($c
 $companiesPagination = paginate_collection($companies, 'companies_page', 'companies_per_page', 10, [10, 20, 50, 100]);
 $companies = $companiesPagination['items'];
 
-$pageTitle = 'Firma Yonetimi';
+$pageTitle = 'Firma Yönetimi';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
@@ -53,27 +77,27 @@ require __DIR__ . '/includes/nav.php';
   <div class="users-hero mb-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
     <div>
       <div class="users-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Platform') ?></div>
-      <h2 class="mb-0">Firma Yonetimi</h2>
+      <h2 class="mb-0">Firma Yönetimi</h2>
     </div>
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#companyModal" data-mode="create">Firma Ekle</button>
   </div>
 
   <?php if ($entryStatus === 'company_saved'): ?>
-  <div class="alert alert-success">Yeni firma ve ilk yonetici kullanicisi olusturuldu.</div>
+  <div class="alert alert-success">Yeni firma ve ilk yönetici kullanıcısı oluşturuldu.</div>
   <?php elseif ($entryStatus === 'user_saved'): ?>
-  <div class="alert alert-success">Firma kullanicisi olusturuldu.</div>
+  <div class="alert alert-success">Firma kullanıcısı oluşturuldu.</div>
   <?php elseif ($entryStatus === 'company_status_changed'): ?>
-  <div class="alert alert-success">Firma durumu guncellendi.</div>
+  <div class="alert alert-success">Firma durumu güncellendi.</div>
   <?php elseif ($entryStatus === 'company_deleted'): ?>
-  <div class="alert alert-success">Pasif ve bos firma kalici olarak silindi.</div>
+  <div class="alert alert-success">Pasif ve boş firma kalıcı olarak silindi.</div>
   <?php elseif ($entryStatus === 'company_exists'): ?>
-  <div class="alert alert-danger">Ayni isimde bir firma zaten kayitli.</div>
+  <div class="alert alert-danger">Aynı isimde bir firma zaten kayıtlı.</div>
   <?php elseif ($entryStatus === 'username_exists'): ?>
-  <div class="alert alert-danger">Bu kullanici adi zaten kullaniliyor.</div>
+  <div class="alert alert-danger">Bu kullanıcı adı zaten kullanılıyor.</div>
   <?php elseif ($entryStatus === 'self_company_blocked'): ?>
-  <div class="alert alert-danger">Kendi ana firmani bu ekrandan pasife alamazsin.</div>
+  <div class="alert alert-danger">Kendi ana firmanı bu ekrandan pasife alamazsın.</div>
   <?php elseif ($entryStatus === 'company_delete_blocked'): ?>
-  <div class="alert alert-danger">Sadece pasif ve tamamen bos firmalar silinebilir.</div>
+  <div class="alert alert-danger">Sadece pasif ve tamamen boş firmalar silinebilir.</div>
   <?php elseif ($entryStatus === 'weak_password'): ?>
   <div class="alert alert-danger"><?= h(auth_password_policy_description()) ?></div>
   <?php elseif ($entryStatus === 'invalid'): ?>
@@ -83,13 +107,13 @@ require __DIR__ . '/includes/nav.php';
   <div class="row g-3 mb-4">
     <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Toplam Firma</div><div class="fs-3 fw-semibold"><?= h((string) $companyCount) ?></div></div></div></div>
     <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Aktif Firma</div><div class="fs-3 fw-semibold"><?= h((string) $activeCompanyCount) ?></div></div></div></div>
-    <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Toplam Kullanici</div><div class="fs-3 fw-semibold"><?= h((string) $totalUsers) ?></div></div></div></div>
-    <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Toplam Arac</div><div class="fs-3 fw-semibold"><?= h((string) $totalCars) ?></div><div class="small text-muted">Kiralama <?= h((string) $totalRentals) ?></div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Toplam Kullanıcı</div><div class="fs-3 fw-semibold"><?= h((string) $totalUsers) ?></div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="text-muted small mb-1">Toplam Araç</div><div class="fs-3 fw-semibold"><?= h((string) $totalCars) ?></div><div class="small text-muted">Kiralama <?= h((string) $totalRentals) ?></div></div></div></div>
   </div>
 
   <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Kayitli Firmalar</span>
+      <span>Kayıtlı Firmalar</span>
       <span class="badge bg-dark"><?= h((string) $companyCount) ?> firma</span>
     </div>
     <div class="card-body table-responsive">
@@ -98,12 +122,12 @@ require __DIR__ . '/includes/nav.php';
           <th>Firma</th>
           <th>Durum</th>
           <th>Operasyon</th>
-          <th>Kullanici Ozeti</th>
-          <th>Iletisim</th>
-          <th>Islem</th>
+          <th>Kullanıcı Özeti</th>
+          <th>İletişim</th>
+          <th>İşlem</th>
         </tr>
         <?php if (empty($companies)): ?>
-        <tr><td colspan="6" class="text-center text-muted">Henuz firma yok.</td></tr>
+        <tr><td colspan="6" class="text-center text-muted">Henüz firma yok.</td></tr>
         <?php endif; ?>
         <?php foreach ($companies as $company): ?>
         <?php
@@ -131,23 +155,23 @@ require __DIR__ . '/includes/nav.php';
           </td>
           <td><?= (int) ($company['is_active'] ?? 0) === 1 ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-secondary">Pasif</span>' ?></td>
           <td>
-            <div class="company-metric-line">Arac <strong><?= h((string) ($company['car_count'] ?? 0)) ?></strong></div>
+            <div class="company-metric-line">Araç <strong><?= h((string) ($company['car_count'] ?? 0)) ?></strong></div>
             <div class="company-metric-line">Kiralama <strong><?= h((string) ($company['rental_count'] ?? 0)) ?></strong></div>
             <div class="company-metric-line">Gider <strong><?= h((string) ($company['expense_count'] ?? 0)) ?></strong></div>
           </td>
           <td>
             <div class="small text-muted mb-2">Toplam <?= h((string) ($company['user_count'] ?? 0)) ?> / Aktif <?= h((string) ($company['active_user_count'] ?? 0)) ?></div>
             <?php if (empty($visibleUsers)): ?>
-            <span class="text-muted">Kullanici yok</span>
+            <span class="text-muted">Kullanıcı yok</span>
             <?php else: ?>
               <?php foreach ($visibleUsers as $user): ?>
               <div class="company-user-line">
                 <strong><?= h($user['full_name'] ?? '') ?></strong>
-                <small class="text-muted"><?= h($user['username'] ?? '') ?> / <?= h(auth_role_label($user['role'] ?? null)) ?></small>
+                <small class="text-muted"><?= h($user['username'] ?? '') ?> / <?= h(auth_user_role_label($user)) ?></small>
               </div>
               <?php endforeach; ?>
               <?php if ($hiddenUserCount > 0): ?>
-              <div class="small text-muted">+<?= h((string) $hiddenUserCount) ?> kullanici daha</div>
+              <div class="small text-muted">+<?= h((string) $hiddenUserCount) ?> kullanıcı daha</div>
               <?php endif; ?>
             <?php endif; ?>
           </td>
@@ -166,7 +190,7 @@ require __DIR__ . '/includes/nav.php';
                 <?= auth_csrf_input() ?>
                 <input type="hidden" name="company_id" value="<?= h($companyId) ?>">
                 <input type="hidden" name="is_active" value="<?= (int) ($company['is_active'] ?? 0) === 1 ? '0' : '1' ?>">
-                <button class="action-btn <?= (int) ($company['is_active'] ?? 0) === 1 ? 'action-danger' : 'action-success' ?>" type="submit" title="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>" aria-label="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>" data-confirm="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Bu firmayi pasife almak istediginize emin misiniz?' : 'Bu firmayi tekrar aktif etmek istediginize emin misiniz?' ?>">
+                <button class="action-btn <?= (int) ($company['is_active'] ?? 0) === 1 ? 'action-danger' : 'action-success' ?>" type="submit" title="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>" aria-label="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>" data-confirm="<?= (int) ($company['is_active'] ?? 0) === 1 ? 'Bu firmayı pasife almak istediğinize emin misiniz?' : 'Bu firmayı tekrar aktif etmek istediğinize emin misiniz?' ?>">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 5v10h-2V7h2Z"/></svg>
                 </button>
               </form>
@@ -174,7 +198,7 @@ require __DIR__ . '/includes/nav.php';
               <form action="actions/platform_company_delete.php" method="post" class="d-inline">
                 <?= auth_csrf_input() ?>
                 <input type="hidden" name="company_id" value="<?= h($companyId) ?>">
-                <button class="action-btn action-danger" type="submit" title="Kalici Sil" aria-label="Kalici Sil" data-confirm="Bu bos ve pasif firmayi kalici olarak silmek istediginize emin misiniz?">
+                <button class="action-btn action-danger" type="submit" title="Kalıcı Sil" aria-label="Kalıcı Sil" data-confirm="Bu boş ve pasif firmayı kalıcı olarak silmek istediğinize emin misiniz?">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm1 6h2v8h-2V9Zm4 0h2v8h-2V9ZM7 9h2v8H7V9Zm-1 11h12l1-13H5l1 13Z"/></svg>
                 </button>
               </form>
@@ -194,7 +218,7 @@ require __DIR__ . '/includes/nav.php';
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Yeni Firma Olustur</h5>
+        <h5 class="modal-title">Yeni Firma Oluştur</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form action="actions/platform_company_save.php" method="post">
@@ -202,7 +226,7 @@ require __DIR__ . '/includes/nav.php';
           <?= auth_csrf_input() ?>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Firma Adi</label>
+              <label class="form-label">Firma Adı</label>
               <input name="company_name" class="form-control" maxlength="150" required>
             </div>
             <div class="col-md-6">
@@ -218,20 +242,20 @@ require __DIR__ . '/includes/nav.php';
               <input name="phone" class="form-control" maxlength="30">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Sehir</label>
+              <label class="form-label">Şehir</label>
               <input name="city" class="form-control" maxlength="120">
             </div>
             <div class="col-12"><hr class="my-1"></div>
             <div class="col-md-4">
-              <label class="form-label">Ilk Yetkili Ad Soyad</label>
+              <label class="form-label">İlk Yetkili Ad Soyad</label>
               <input name="admin_full_name" class="form-control" maxlength="150" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Ilk Yetkili Kullanici Adi</label>
+              <label class="form-label">İlk Yetkili Kullanıcı Adı</label>
               <input name="admin_username" class="form-control" maxlength="80" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Ilk Yetkili Sifre</label>
+              <label class="form-label">İlk Yetkili Şifre</label>
               <input name="admin_password" type="password" class="form-control" required>
               <div class="form-text"><?= h(auth_password_policy_description()) ?></div>
             </div>
@@ -239,7 +263,7 @@ require __DIR__ . '/includes/nav.php';
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-          <button class="btn btn-success" type="submit">Firmayi Olustur</button>
+          <button class="btn btn-success" type="submit">Firmayı Oluştur</button>
         </div>
       </form>
     </div>
@@ -250,7 +274,7 @@ require __DIR__ . '/includes/nav.php';
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Firma Kullanicisi Ekle</h5>
+        <h5 class="modal-title">Firma Kullanıcısı Ekle</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form action="actions/platform_user_save.php" method="post">
@@ -266,7 +290,7 @@ require __DIR__ . '/includes/nav.php';
             <input name="full_name" class="form-control" maxlength="150" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Kullanici Adi</label>
+            <label class="form-label">Kullanıcı Adı</label>
             <input name="username" class="form-control" maxlength="80" required>
           </div>
           <div class="mb-3">
@@ -278,7 +302,7 @@ require __DIR__ . '/includes/nav.php';
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Sifre</label>
+            <label class="form-label">Şifre</label>
             <input name="password" type="password" class="form-control" required>
             <div class="form-text"><?= h(auth_password_policy_description()) ?></div>
           </div>

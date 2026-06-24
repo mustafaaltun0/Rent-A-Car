@@ -6,11 +6,11 @@ auth_require_permission('company.manage');
 
 $company = auth_current_company($pdo);
 if (!$company) {
-    auth_abort('Firma bilgisi bulunamadi.', 404);
+    auth_abort('Firma bilgisi bulunamadı.', 404);
 }
 
 $status = trim((string) ($_GET['status'] ?? ''));
-$pageTitle = 'Firma Ayarlari';
+$pageTitle = 'Firma Ayarları';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
@@ -18,32 +18,32 @@ require __DIR__ . '/includes/nav.php';
   <div class="users-hero mb-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
     <div>
       <div class="users-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>
-      <h2 class="mb-0">Firma Ayarlari</h2>
+      <h2 class="mb-0">Firma Ayarları</h2>
     </div>
   </div>
 
   <?php if ($status === 'saved'): ?>
-  <div class="alert alert-success">Firma bilgileri guncellendi.</div>
+  <div class="alert alert-success">Firma bilgileri güncellendi.</div>
   <?php elseif ($status === 'invalid'): ?>
-  <div class="alert alert-danger">Zorunlu alanlari kontrol et.</div>
+  <div class="alert alert-danger">Zorunlu alanları kontrol et.</div>
   <?php elseif ($status === 'email_invalid'): ?>
-  <div class="alert alert-danger">E-posta adresi gecersiz.</div>
+  <div class="alert alert-danger">E-posta adresi geçersiz.</div>
   <?php elseif ($status === 'website_invalid'): ?>
-  <div class="alert alert-danger">Web sitesi adresi gecersiz.</div>
+  <div class="alert alert-danger">Web sitesi adresi geçersiz.</div>
   <?php endif; ?>
 
   <div class="card shadow-sm mb-4">
     <div class="card-header">Kurumsal Profil</div>
     <div class="card-body">
-      <p class="text-muted mb-4">Bu bilgiler firma kimligi, resmi belgeler ve ileride eklenecek cikti/fatura altyapisi icin merkezi kaynaktir.</p>
+      <p class="text-muted mb-4">Bu bilgiler firma kimliği, resmî belgeler ve ileride eklenecek çıktı/fatura altyapısı için merkezi kaynaktır.</p>
       <form action="actions/company_settings_save.php" method="post" enctype="multipart/form-data" class="row g-3">
         <?= auth_csrf_input() ?>
         <?php if ($status === 'logo_invalid'): ?>
         <div class="col-12"><div class="alert alert-danger mb-0">Logo sadece JPG, PNG veya WEBP olabilir.</div></div>
         <?php elseif ($status === 'logo_too_large'): ?>
-        <div class="col-12"><div class="alert alert-danger mb-0">Logo dosyasi en fazla 2 MB olabilir.</div></div>
+        <div class="col-12"><div class="alert alert-danger mb-0">Logo dosyası en fazla 2 MB olabilir.</div></div>
         <?php elseif ($status === 'logo_upload_failed'): ?>
-        <div class="col-12"><div class="alert alert-danger mb-0">Logo yuklenirken bir hata olustu.</div></div>
+        <div class="col-12"><div class="alert alert-danger mb-0">Logo yüklenirken bir hata oluştu.</div></div>
         <?php endif; ?>
         <div class="col-12">
           <div class="company-logo-card">
@@ -57,22 +57,22 @@ require __DIR__ . '/includes/nav.php';
             <div class="company-logo-form">
               <label class="form-label">Firma Logosu</label>
               <input name="logo_file" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
-              <div class="form-text">Kurumsal gorunum icin yatay logo onerilir. Maksimum 2 MB.</div>
+              <div class="form-text">Kurumsal görünüm için yatay logo önerilir. Maksimum 2 MB.</div>
               <?php if (!empty($company['logo_path'])): ?>
               <div class="form-check mt-2">
                 <input class="form-check-input" type="checkbox" value="1" id="removeLogo" name="remove_logo">
-                <label class="form-check-label" for="removeLogo">Mevcut logoyu kaldir</label>
+                <label class="form-check-label" for="removeLogo">Mevcut logoyu kaldır</label>
               </div>
               <?php endif; ?>
             </div>
           </div>
         </div>
         <div class="col-md-6">
-          <label class="form-label">Gorunen Firma Adi</label>
+          <label class="form-label">Görünen Firma Adı</label>
           <input name="company_name" class="form-control" value="<?= h($company['name'] ?? '') ?>" maxlength="150" required>
         </div>
         <div class="col-md-6">
-          <label class="form-label">Resmi Unvan</label>
+          <label class="form-label">Resmî Unvan</label>
           <input name="legal_name" class="form-control" value="<?= h($company['legal_name'] ?? '') ?>" maxlength="180">
         </div>
         <div class="col-md-6">
@@ -96,11 +96,11 @@ require __DIR__ . '/includes/nav.php';
           <input name="tax_office" class="form-control" value="<?= h($company['tax_office'] ?? '') ?>" maxlength="120">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Vergi Numarasi</label>
+          <label class="form-label">Vergi Numarası</label>
           <input name="tax_number" class="form-control" value="<?= h($company['tax_number'] ?? '') ?>" maxlength="30">
         </div>
         <div class="col-md-4">
-          <label class="form-label">MERSIS Numarasi</label>
+          <label class="form-label">MERSİS Numarası</label>
           <input name="mersis_number" class="form-control" value="<?= h($company['mersis_number'] ?? '') ?>" maxlength="30">
         </div>
         <div class="col-12">
@@ -108,19 +108,19 @@ require __DIR__ . '/includes/nav.php';
           <textarea name="address" class="form-control" rows="3"><?= h($company['address'] ?? '') ?></textarea>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Ilce</label>
+          <label class="form-label">İlçe</label>
           <input name="district" class="form-control" value="<?= h($company['district'] ?? '') ?>" maxlength="120">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Sehir</label>
+          <label class="form-label">Şehir</label>
           <input name="city" class="form-control" value="<?= h($company['city'] ?? '') ?>" maxlength="120">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Ulke</label>
-          <input name="country" class="form-control" value="<?= h($company['country'] ?? 'Turkiye') ?>" maxlength="120">
+          <label class="form-label">Ülke</label>
+          <input name="country" class="form-control" value="<?= h($company['country'] ?? 'Türkiye') ?>" maxlength="120">
         </div>
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mt-2">
-          <small class="text-muted">Son guncelleme: <?= !empty($company['updated_at']) ? h(dt($company['updated_at'])) : '-' ?></small>
+          <small class="text-muted">Son güncelleme: <?= !empty($company['updated_at']) ? h(dt($company['updated_at'])) : '-' ?></small>
           <button class="btn btn-dark" type="submit">Firma Bilgilerini Kaydet</button>
         </div>
       </form>

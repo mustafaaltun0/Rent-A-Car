@@ -7,7 +7,9 @@ auth_require_permission('rentals.view');
 ensureRentalExtensionSchema($pdo);
 ensureRentalArchiveSchema($pdo);
 ensureCarArchiveSchema($pdo);
+ensureCarPhotoSchema($pdo);
 ensureExpenseArchiveSchema($pdo);
+ensureCarSaleSchema($pdo);
 ensureCustomerCompanySchema($pdo);
 $companyId = auth_current_company_id();
 $canManageRentals = auth_can('rentals.manage');
@@ -25,7 +27,7 @@ $activeRentalSt->execute([$companyId]);
 $activeRentalCarIds = $activeRentalSt->fetchAll(PDO::FETCH_COLUMN);
 $activeRentalMap = array_fill_keys(array_map('strval', $activeRentalCarIds), true);
 
-$carsSt = $pdo->prepare('SELECT * FROM cars WHERE company_id = ? AND archived_at IS NULL ORDER BY brand, model');
+$carsSt = $pdo->prepare('SELECT * FROM cars WHERE company_id = ? AND archived_at IS NULL AND sold_at IS NULL ORDER BY brand, model');
 $carsSt->execute([$companyId]);
 $cars = $carsSt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -34,9 +36,15 @@ $customerCompanies = $customerCompaniesEnabled ? getCustomerCompanies($pdo, $com
 $sql = '
     SELECT
         r.*,
+        c.id AS car_id,
         c.brand,
         c.model,
         c.plate,
+        c.photo_path,
+        c.photo_position_x,
+        c.photo_position_y,
+        c.photo_focus_x,
+        c.photo_focus_y,
         cc.company_name AS customer_company_name,
         cc.is_active AS customer_company_active
     FROM rentals r
@@ -55,7 +63,18 @@ if ($showArchived) {
     $sql .= ' AND r.archived_at IS NULL';
 }
 if (!$showAll && !$showArchived) {
-    $sql .= ' AND r.completed = 0';
+    $sql .= " AND (
+        r.completed = 0
+        OR (COALESCE(r.collected_amount, r.income, 0) + 0.0001 < COALESCE(r.income, 0))
+        OR EXISTS (
+            SELECT 1
+            FROM rental_extensions re
+            WHERE re.rental_id = r.id
+              AND re.company_id = r.company_id
+              AND re.extension_status = 'active'
+              AND re.payment_status <> 'collected'
+        )
+    )";
 }
 if ($month) {
     $sql .= ' AND MONTH(r.start_date) = ?';
@@ -69,14 +88,14 @@ $sql .= ' ORDER BY r.completed ASC, r.id DESC';
 $st = $pdo->prepare($sql);
 $st->execute($params);
 $rentals = $st->fetchAll(PDO::FETCH_ASSOC);
+$extensionsByRentalId = getRentalExtensionsByRentalId($pdo, $companyId);
+$collectionsByExtensionId = getRentalExtensionCollectionsByExtensionId($pdo, $companyId);
 $rentalsPagination = paginate_collection($rentals, 'rentals_page', 'rentals_per_page', 10, [10, 20, 50, 100]);
 $rentals = $rentalsPagination['items'];
 
 $reportRentalsSt = $pdo->prepare('SELECT * FROM rentals WHERE company_id = ? AND archived_at IS NULL AND start_date IS NOT NULL ORDER BY start_date');
 $reportRentalsSt->execute([$companyId]);
 $reportRentals = $reportRentalsSt->fetchAll(PDO::FETCH_ASSOC);
-$extensionsByRentalId = getRentalExtensionsByRentalId($pdo, $companyId);
-$collectionsByExtensionId = getRentalExtensionCollectionsByExtensionId($pdo, $companyId);
 $receivableWarnings = buildRentalExtensionReceivableWarnings($reportRentals, $extensionsByRentalId, $collectionsByExtensionId, 1);
 $receivableWarningsByRentalId = $receivableWarnings['by_rental_id'] ?? [];
 
@@ -159,7 +178,7 @@ require __DIR__ . '/includes/nav.php';
   <?php if ($error === 'car_unavailable'): ?>
   <div class="alert alert-danger">Sectigin arac su anda aktif kirada. Sadece bosta olan araclar kiralanabilir.</div>
   <?php elseif ($error === 'rental_reopen_conflict'): ?>
-  <div class="alert alert-danger">Bu kiralama geri alinamadi. Arac su anda baska bir aktif kiralamada gorunuyor.</div>
+  <div class="alert alert-danger">Bu kiralama geri alınamadı. Araç şu anda başka bir aktif kiralamada görünüyor.</div>
   <?php elseif ($error === 'invalid_customer_company'): ?>
   <div class="alert alert-danger">Secilen kurumsal musteri bu firmaya ait degil ya da pasif durumda.</div>
   <?php endif; ?>
@@ -173,7 +192,7 @@ require __DIR__ . '/includes/nav.php';
   <div class="alert alert-danger">Kiralama arsivlenirken beklenmeyen bir sorun olustu.</div>
   <?php endif; ?>
   <?php if ($error === 'rental_restore_conflict'): ?>
-  <div class="alert alert-danger">Bu kiralama geri yuklenemedi. Arac su anda baska bir aktif kiralamada gorunuyor.</div>
+  <div class="alert alert-danger">Bu kiralama geri yüklenemedi. Araç şu anda başka bir aktif kiralamada görünüyor.</div>
   <?php endif; ?>
   <?php if ($status === 'extension_saved'): ?>
   <div class="alert alert-success">Kiralama uzatildi. Tahsilat durumu secimine gore kayit olusturuldu.</div>
@@ -195,17 +214,17 @@ require __DIR__ . '/includes/nav.php';
   <?php endif; ?>
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header rentals-card-header"><?= $showArchived ? 'Arsivlenmis Kiralamalar' : ($showAll ? 'Tum Kiralamalar' : 'Aktif Kiralamalar') ?></div>
+    <div class="card-header rentals-card-header"><?= $showArchived ? 'Arşivlenmiş Kiralamalar' : ($showAll ? 'Tüm Kiralamalar' : 'Aktif Kiralamalar') ?></div>
     <div class="card-body border-bottom bg-light-subtle rentals-switchbar">
       <?php if ($showArchived): ?>
-        <a href="rentals.php<?= $month || $year || $showAll ? '?' . http_build_query(array_filter(['month' => $month, 'year' => $year, 'show_all' => $showAll ? 1 : null])) : '' ?>" class="btn btn-outline-dark btn-sm">Normal Listeye Don</a>
+        <a href="rentals.php<?= $month || $year || $showAll ? '?' . http_build_query(array_filter(['month' => $month, 'year' => $year, 'show_all' => $showAll ? 1 : null])) : '' ?>" class="btn btn-outline-dark btn-sm">Normal Listeye Dön</a>
       <?php elseif ($showAll): ?>
         <a href="rentals.php<?= $month || $year ? '?' . http_build_query(array_filter(['month' => $month, 'year' => $year])) : '' ?>" class="btn btn-outline-dark btn-sm">Aktif Kiralamalari Gor</a>
       <?php else: ?>
         <a href="rentals.php?<?= http_build_query(array_filter(['show_all' => 1, 'month' => $month, 'year' => $year])) ?>" class="btn btn-outline-dark btn-sm">Tum Kiralamalari Gor</a>
       <?php endif; ?>
       <?php if (!$showArchived): ?>
-      <a href="rentals.php?<?= http_build_query(array_filter(['show_archived' => 1, 'month' => $month, 'year' => $year])) ?>" class="btn btn-outline-secondary btn-sm">Arsivdekileri Gor</a>
+      <a href="rentals.php?<?= http_build_query(array_filter(['show_archived' => 1, 'month' => $month, 'year' => $year])) ?>" class="btn btn-outline-secondary btn-sm">Arşivdekileri Gör</a>
       <?php endif; ?>
     </div>
     <div class="card-body border-bottom rentals-filter-panel">
@@ -247,13 +266,17 @@ require __DIR__ . '/includes/nav.php';
           $rentalReceivableWarnings = $receivableWarningsByRentalId[(int) $r['id']] ?? [];
           $topReceivableWarning = $rentalReceivableWarnings[0] ?? null;
           $mobileStatusClass = $showArchived ? 'secondary' : ((int) $r['completed'] === 1 ? 'dark' : 'success');
-          $mobileStatusLabel = $showArchived ? 'Arsivde' : ((int) $r['completed'] === 1 ? 'Tamamlandi' : 'Aktif');
+          $mobileStatusLabel = $showArchived ? 'Arşivde' : ((int) $r['completed'] === 1 ? 'Tamamlandı' : 'Aktif');
         ?>
         <div class="mobile-record-card <?= $showArchived ? 'is-archived' : '' ?>">
           <div class="mobile-record-card-head">
             <div class="mobile-record-card-title">
+              <?php $rentalCarPhotoUrl = !empty($r['car_id']) ? car_photo_public_url(['id' => $r['car_id'], 'photo_path' => $r['photo_path'] ?? null]) : null; ?>
+              <?php if ($rentalCarPhotoUrl): ?>
+              <img src="<?= h($rentalCarPhotoUrl) ?>?v=<?= h(rawurlencode((string) ($r['photo_path'] ?? 'car'))) ?>" alt="<?= h(trim(($r['brand'] ?? '') . ' ' . ($r['model'] ?? ''))) ?>" class="car-photo-thumb mb-2" style="<?= h(car_photo_position_style($r)) ?>">
+              <?php endif; ?>
               <strong><?= h($r['customer_name']) ?></strong>
-              <small><?= h(trim(($r['brand'] ?? 'Silinmis Arac') . ' ' . ($r['model'] ?? ''))) ?><?php if (!empty($r['plate'])): ?> / <?= h($r['plate']) ?><?php endif; ?></small>
+              <small><?= h(trim(($r['brand'] ?? 'Silinmiş Araç') . ' ' . ($r['model'] ?? ''))) ?><?php if (!empty($r['plate'])): ?> / <?= h($r['plate']) ?><?php endif; ?></small>
             </div>
             <div class="mobile-record-card-badges">
               <span class="badge bg-<?= h($mobileStatusClass) ?>"><?= h($mobileStatusLabel) ?></span>
@@ -263,10 +286,10 @@ require __DIR__ . '/includes/nav.php';
           <div class="mobile-record-grid">
             <div><span>Bitis</span><strong><?= dt($r['end_date']) ?></strong></div>
             <div><span>Tahsil</span><strong><?= money($totals['income']) ?></strong></div>
-            <div><span>Bekleyen</span><strong><?= money($totals['pending_income'] ?? 0) ?></strong></div>
+            <div><span>Bekleyen</span><strong><?= money($totals['pending_income']) ?></strong></div>
             <div><span>Telefon</span><strong><?= h($r['customer_phone'] ?: '-') ?></strong></div>
             <?php if ($customerCompaniesEnabled && !empty($r['customer_company_name'])): ?>
-            <div class="full"><span>Kurumsal Musteri</span><strong><?= h($r['customer_company_name']) ?><?= (int) ($r['customer_company_active'] ?? 1) === 1 ? '' : ' / Pasif' ?></strong></div>
+            <div class="full"><span>Kurumsal Müşteri</span><strong><?= h($r['customer_company_name']) ?><?= (int) ($r['customer_company_active'] ?? 1) === 1 ? '' : ' / Pasif' ?></strong></div>
             <?php endif; ?>
             <?php if ($topReceivableWarning): ?>
             <div class="full"><span>Uyari</span><strong class="<?= $topReceivableWarning['level'] === 'danger' ? 'text-danger' : 'text-warning' ?>"><?= h($topReceivableWarning['short_label']) ?> / <?= money($topReceivableWarning['pending_amount']) ?></strong></div>
@@ -280,8 +303,8 @@ require __DIR__ . '/includes/nav.php';
             <button
               class="action-btn action-warning"
               type="button"
-              title="Duzenle"
-              aria-label="Duzenle"
+              title="Düzenle"
+              aria-label="Düzenle"
               data-bs-toggle="modal"
               data-bs-target="#rentalModal"
               data-mode="edit"
@@ -295,6 +318,8 @@ require __DIR__ . '/includes/nav.php';
               data-end_date="<?= h($endValue) ?>"
               data-departure-km="<?= h($r['departure_km']) ?>"
               data-income="<?= h($r['income']) ?>"
+              data-collected_amount="<?= h(number_format(rental_collected_amount($r), 2, '.', '')) ?>"
+              data-payment_due_date="<?= h(!empty($r['payment_due_date']) ? date('Y-m-d\\TH:i', strtotime($r['payment_due_date'])) : '') ?>"
               data-expense="<?= h($r['expense']) ?>"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17.2 10.9-10.9 3.8 3.8L6.8 21H3v-3.8Zm12.3-12.3 1.4-1.4a2 2 0 0 1 2.8 0l1.5 1.5a2 2 0 0 1 0 2.8L19.6 9.2l-4.3-4.3Z"/></svg>
@@ -310,7 +335,7 @@ require __DIR__ . '/includes/nav.php';
               <?= auth_csrf_input() ?>
               <input type="hidden" name="id" value="<?= h($r['id']) ?>">
               <input type="hidden" name="return_km" value="">
-              <button type="submit" class="action-btn action-success" title="Teslim Al" aria-label="Teslim Al" onclick="const departureKm = <?= json_encode($r['departure_km']) ?> ? parseInt(<?= json_encode($r['departure_km']) ?>, 10) : NaN; const promptText = Number.isFinite(departureKm) ? 'Donus KM girin. Cikis KM: ' + departureKm : 'Donus KM girin.'; const result = window.prompt(promptText, ''); if (result === null) { return false; } const cleanedValue = result.replace(/\\D/g, ''); if (!cleanedValue) { window.alert('Lutfen gecerli bir donus KM girin.'); return false; } if (Number.isFinite(departureKm) && parseInt(cleanedValue, 10) < departureKm) { window.alert('Donus KM, cikis KM degerinden kucuk olamaz.'); return false; } this.form.querySelector('[name=&quot;return_km&quot;]').value = cleanedValue; return true;">
+              <button type="submit" class="action-btn action-success" title="Teslim Al" aria-label="Teslim Al" onclick="const departureKm = <?= json_encode($r['departure_km']) ?> ? parseInt(<?= json_encode($r['departure_km']) ?>, 10) : NaN; const promptText = Number.isFinite(departureKm) ? 'Dönüş KM girin. Çıkış KM: ' + departureKm : 'Dönüş KM girin.'; const result = window.prompt(promptText, ''); if (result === null) { return false; } const cleanedValue = result.replace(/\\D/g, ''); if (!cleanedValue) { window.alert('Lütfen geçerli bir dönüş KM girin.'); return false; } if (Number.isFinite(departureKm) && parseInt(cleanedValue, 10) < departureKm) { window.alert('Dönüş KM, çıkış KM değerinden küçük olamaz.'); return false; } this.form.querySelector('[name=&quot;return_km&quot;]').value = cleanedValue; return true;">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 16.6-4.3-4.3 1.4-1.4 2.9 2.9 8.5-8.5 1.4 1.4-9.9 9.9Z"/></svg>
               </button>
             </form>
@@ -327,7 +352,7 @@ require __DIR__ . '/includes/nav.php';
             <form action="actions/rental_delete.php" method="post">
               <?= auth_csrf_input() ?>
               <input type="hidden" name="id" value="<?= h($r['id']) ?>">
-              <button class="action-btn action-danger" type="submit" title="Arsivle" aria-label="Arsivle" data-confirm="Bu kiralama kaydini arsive almak istediginize emin misiniz?">
+              <button class="action-btn action-danger" type="submit" title="Arşivle" aria-label="Arşivle" data-confirm="Bu kiralama kaydını arşive almak istediğinize emin misiniz?">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4V5Zm1 6h14v8H5v-8Zm3 2v2h8v-2H8Z"/></svg>
               </button>
             </form>
@@ -346,7 +371,7 @@ require __DIR__ . '/includes/nav.php';
       </div>
       <div class="table-responsive d-none d-lg-block">
       <table class="table table-bordered table-striped align-middle">
-        <tr><th>Musteri</th><th>Arac</th><th>Bitis</th><th>Tahsil Edilen</th><th>Islem</th></tr>
+        <tr><th>Müşteri</th><th>Araç</th><th>Bitiş</th><th>Tahsil Edilen</th><th>İşlem</th></tr>
         <?php foreach ($rentals as $r): ?>
         <?php
           $startValue = $r['start_date'] ? date('Y-m-d\TH:i', strtotime($r['start_date'])) : '';
@@ -355,6 +380,7 @@ require __DIR__ . '/includes/nav.php';
           $extensionCount = count($extensionsByRentalId[(int) $r['id']] ?? []);
           $rentalReceivableWarnings = $receivableWarningsByRentalId[(int) $r['id']] ?? [];
           $topReceivableWarning = $rentalReceivableWarnings[0] ?? null;
+          $rentalCarPhotoUrl = !empty($r['car_id']) ? car_photo_public_url(['id' => $r['car_id'], 'photo_path' => $r['photo_path'] ?? null]) : null;
         ?>
         <tr class="clickable-row" onclick="window.location.href='rental_detail.php?id=<?= h($r['id']) ?>'">
           <td>
@@ -372,7 +398,7 @@ require __DIR__ . '/includes/nav.php';
             <div><small class="text-muted"><?= $extensionCount ?> uzatma var</small></div>
             <?php endif; ?>
           </td>
-          <td><?= h(trim(($r['brand'] ?? 'Silinmis Arac') . ' ' . ($r['model'] ?? ''))) ?></td>
+          <td><?php if ($rentalCarPhotoUrl): ?><div class="d-flex align-items-center gap-2"><img src="<?= h($rentalCarPhotoUrl) ?>?v=<?= h(rawurlencode((string) ($r['photo_path'] ?? 'car'))) ?>" alt="<?= h($r['plate'] ?? 'Araç') ?>" class="car-photo-thumb" style="<?= h(car_photo_position_style($r)) ?>"><span><?= h(trim(($r['brand'] ?? 'Silinmiş Araç') . ' ' . ($r['model'] ?? ''))) ?></span></div><?php else: ?><?= h(trim(($r['brand'] ?? 'Silinmiş Araç') . ' ' . ($r['model'] ?? ''))) ?><?php endif; ?></td>
           <td><?= dt($r['end_date']) ?></td>
           <td><?= money($totals['income']) ?></td>
           <td class="table-actions-cell">
@@ -381,8 +407,8 @@ require __DIR__ . '/includes/nav.php';
               <button
                 class="action-btn action-warning"
                 type="button"
-                title="Duzenle"
-                aria-label="Duzenle"
+                title="Düzenle"
+                aria-label="Düzenle"
                 onclick="event.stopPropagation();"
                 data-bs-toggle="modal"
                 data-bs-target="#rentalModal"
@@ -397,6 +423,8 @@ require __DIR__ . '/includes/nav.php';
                 data-end_date="<?= h($endValue) ?>"
                 data-departure-km="<?= h($r['departure_km']) ?>"
                 data-income="<?= h($r['income']) ?>"
+                data-collected_amount="<?= h(number_format(rental_collected_amount($r), 2, '.', '')) ?>"
+                data-payment_due_date="<?= h(!empty($r['payment_due_date']) ? date('Y-m-d\\TH:i', strtotime($r['payment_due_date'])) : '') ?>"
                 data-expense="<?= h($r['expense']) ?>"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17.2 10.9-10.9 3.8 3.8L6.8 21H3v-3.8Zm12.3-12.3 1.4-1.4a2 2 0 0 1 2.8 0l1.5 1.5a2 2 0 0 1 0 2.8L19.6 9.2l-4.3-4.3Z"/></svg>
@@ -410,7 +438,7 @@ require __DIR__ . '/includes/nav.php';
               <form action="actions/rental_delete.php" method="post" class="d-inline" onclick="event.stopPropagation();">
                 <?= auth_csrf_input() ?>
                 <input type="hidden" name="id" value="<?= h($r['id']) ?>">
-                <button class="action-btn action-danger" type="submit" title="Arsivle" aria-label="Arsivle" data-confirm="Bu kiralama kaydini arsive almak istediginize emin misiniz?">
+                <button class="action-btn action-danger" type="submit" title="Arşivle" aria-label="Arşivle" data-confirm="Bu kiralama kaydını arşive almak istediğinize emin misiniz?">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4V5Zm1 6h14v8H5v-8Zm3 2v2h8v-2H8Z"/></svg>
                 </button>
               </form>
@@ -428,7 +456,7 @@ require __DIR__ . '/includes/nav.php';
                 <?= auth_csrf_input() ?>
                 <input type="hidden" name="id" value="<?= h($r['id']) ?>">
                 <input type="hidden" name="return_km" value="">
-                <button type="submit" class="action-btn action-success" title="Teslim Edildi" aria-label="Teslim Edildi" onclick="const departureKm = <?= json_encode($r['departure_km']) ?> ? parseInt(<?= json_encode($r['departure_km']) ?>, 10) : NaN; const promptText = Number.isFinite(departureKm) ? 'Donus KM girin. Cikis KM: ' + departureKm : 'Donus KM girin.'; const result = window.prompt(promptText, ''); if (result === null) { return false; } const cleanedValue = result.replace(/\\D/g, ''); if (!cleanedValue) { window.alert('Lutfen gecerli bir donus KM girin.'); return false; } if (Number.isFinite(departureKm) && parseInt(cleanedValue, 10) < departureKm) { window.alert('Donus KM, cikis KM degerinden kucuk olamaz.'); return false; } this.form.querySelector('[name=&quot;return_km&quot;]').value = cleanedValue; return true;">
+                <button type="submit" class="action-btn action-success" title="Teslim Edildi" aria-label="Teslim Edildi" onclick="const departureKm = <?= json_encode($r['departure_km']) ?> ? parseInt(<?= json_encode($r['departure_km']) ?>, 10) : NaN; const promptText = Number.isFinite(departureKm) ? 'Dönüş KM girin. Çıkış KM: ' + departureKm : 'Dönüş KM girin.'; const result = window.prompt(promptText, ''); if (result === null) { return false; } const cleanedValue = result.replace(/\\D/g, ''); if (!cleanedValue) { window.alert('Lütfen geçerli bir dönüş KM girin.'); return false; } if (Number.isFinite(departureKm) && parseInt(cleanedValue, 10) < departureKm) { window.alert('Dönüş KM, çıkış KM değerinden küçük olamaz.'); return false; } this.form.querySelector('[name=&quot;return_km&quot;]').value = cleanedValue; return true;">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.2 16.6-4.1-4.1 1.4-1.4 2.7 2.7 8.3-8.3 1.4 1.4-9.7 9.7Z"/></svg>
                 </button>
               </form>
@@ -456,7 +484,7 @@ require __DIR__ . '/includes/nav.php';
 
   <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Aylik Performans Ozeti</span>
+      <span>Aylık Performans Özeti</span>
       <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#rentalMonthlyReport" aria-expanded="false" aria-controls="rentalMonthlyReport">Ac / Kapat</button>
     </div>
     <div class="collapse" id="rentalMonthlyReport">
@@ -493,7 +521,7 @@ require __DIR__ . '/includes/nav.php';
             <div class="row g-3">
               <?php if ($customerCompaniesEnabled): ?>
               <div class="col-md-6">
-                <label class="form-label">Kurumsal Musteri</label>
+                <label class="form-label">Kurumsal Müşteri</label>
                 <select name="customer_company_id" class="form-select">
                   <option value="">Bireysel / Secilmedi</option>
                   <?php foreach ($customerCompanies as $customerCompany): ?>
@@ -506,7 +534,7 @@ require __DIR__ . '/includes/nav.php';
               </div>
               <?php endif; ?>
               <div class="col-md-6">
-                <label class="form-label">Musteri Adi</label>
+                <label class="form-label">Müşteri Adı</label>
                 <input name="customer_name" class="form-control" required>
               </div>
               <div class="col-md-6">
@@ -518,7 +546,7 @@ require __DIR__ . '/includes/nav.php';
                 <input name="customer_identity_no" class="form-control" inputmode="numeric" maxlength="11" pattern="[0-9]{0,11}">
               </div>
               <div class="col-md-6">
-                <label class="form-label">Arac</label>
+                <label class="form-label">Araç</label>
                 <select name="car_id" class="form-select" required>
                   <?php foreach ($cars as $c): ?>
                   <?php $isBusy = isset($activeRentalMap[(string) $c['id']]); ?>
@@ -548,6 +576,19 @@ require __DIR__ . '/includes/nav.php';
                 <label class="form-label">Ilk Gelir</label>
                 <input name="income" type="number" step="0.01" class="form-control">
               </div>
+              <div class="col-md-6">
+                <label class="form-label">Tahsil Edilen</label>
+                <input name="collected_amount" type="number" step="0.01" min="0" class="form-control" placeholder="Bos birakirsan tamami tahsil edildi sayilir">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Kalan Tahsilat</label>
+                <input name="remaining_amount_preview" type="text" class="form-control" value="0 TL" readonly>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Beklenen Tahsilat Tarihi</label>
+                <input name="payment_due_date" type="datetime-local" class="form-control">
+                <div class="form-text">Müşteri tüm ödemeyi yapmadıysa doldurabilirsin.</div>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -571,7 +612,7 @@ require __DIR__ . '/includes/nav.php';
             <?= auth_csrf_input() ?>
             <input type="hidden" name="rental_id" value="">
             <div class="mb-3">
-              <label class="form-label">Musteri</label>
+              <label class="form-label">Müşteri</label>
               <input name="customer_name_preview" class="form-control" readonly>
             </div>
             <div class="mb-3">

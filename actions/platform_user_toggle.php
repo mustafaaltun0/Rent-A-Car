@@ -41,7 +41,7 @@ if (in_array($existingRole, ['platform_admin', 'super_admin'], true) && $isActiv
 $update = $pdo->prepare('UPDATE users SET is_active = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
 $update->execute([$isActive === 1 ? 1 : 0, $id, $companyId]);
 
-auth_audit_log($pdo, 'platform.user_status_changed', $isActive === 1 ? 'Platform yoneticisi firma kullanicisini aktif etti.' : 'Platform yoneticisi firma kullanicisini pasife aldi.', [
+auth_audit_log($pdo, 'platform.user_status_changed', $isActive === 1 ? 'Platform yöneticisi firma kullanıcısını aktif etti.' : 'Platform yöneticisi firma kullanıcısını pasife aldı.', [
     'entity_type' => 'user',
     'entity_id' => $id,
     'company_id' => $companyId,

@@ -6,9 +6,11 @@ auth_require_permission('cars.view');
 
 ensureRentalExtensionSchema($pdo);
 ensureRentalArchiveSchema($pdo);
+ensureCarPhotoSchema($pdo);
 ensureCarTelematicsSchema($pdo);
 ensureCarTelematicsEventSchema($pdo);
 ensureCarArchiveSchema($pdo);
+ensureCarSaleSchema($pdo);
 $companyId = auth_current_company_id();
 
 if (!function_exists('dateStatus')) {
@@ -58,6 +60,13 @@ $telematicsHasLiveData = telematics_car_has_live_data($car);
 $telematicsLocation = ($car['telematics_last_latitude'] !== null && $car['telematics_last_longitude'] !== null)
     ? number_format((float) $car['telematics_last_latitude'], 6, ',', '.') . ', ' . number_format((float) $car['telematics_last_longitude'], 6, ',', '.')
     : '-';
+$carSalesByCarId = getCarSalesByCarId($pdo, $companyId, [$id]);
+$carSale = $carSalesByCarId[$id] ?? null;
+$carSaleCollectionsBySaleId = getCarSaleCollectionsBySaleId($pdo, $companyId, $carSale ? [(int) ($carSale['id'] ?? 0)] : []);
+$carSaleCollections = $carSale ? ($carSaleCollectionsBySaleId[(int) ($carSale['id'] ?? 0)] ?? []) : [];
+$carSaleCollectedAmount = $carSale ? car_sale_collected_amount($carSale, $carSaleCollectionsBySaleId) : 0.0;
+$carSalePendingAmount = $carSale ? car_sale_pending_amount($carSale, $carSaleCollectionsBySaleId) : 0.0;
+$carSalePaymentStatus = $carSale ? car_sale_effective_payment_status($carSale, $carSaleCollectionsBySaleId) : null;
 
 $totalIncome = 0.0;
 $totalExpense = 0.0;
@@ -71,10 +80,13 @@ $totalProfit = $totalIncome - $totalExpense;
 $inspectionStatus = dateStatus($car['inspection_date'] ?? null);
 $insuranceStatus = dateStatus($car['insurance_date'] ?? null);
 $maintenanceDate = !empty($car['maintenance_date']) ? d($car['maintenance_date']) : '-';
-$statusLabel = $isAvailable ? 'Müsait' : 'Kirada';
-$statusClass = $isAvailable ? 'status-success' : 'status-danger';
+$isSoldCar = car_is_sold($car);
+$statusLabel = $isSoldCar ? 'Satıldı' : ($isAvailable ? 'Müsait' : 'Kirada');
+$statusClass = $isSoldCar ? 'status-warning' : ($isAvailable ? 'status-success' : 'status-danger');
 $companyLabel = (string) (auth_current_user()['company_name'] ?? 'Firma');
 $isArchivedCar = car_is_archived($car);
+$carPhotoUrl = car_photo_public_url($car);
+$status = trim((string) ($_GET['status'] ?? ''));
 
 $pageTitle = 'Araç Detay';
 require __DIR__ . '/includes/header.php';
@@ -82,7 +94,33 @@ require __DIR__ . '/includes/nav.php';
 ?>
 <div class="car-detail-page">
   <?php if ($isArchivedCar): ?>
-  <div class="alert alert-secondary">Bu arac arsivde. Gecmisini gorebilirsin ama yeni operasyonlarda kullanilmaz.</div>
+  <div class="alert alert-secondary">Bu araç arşivde. Geçmişini görebilirsin ama yeni operasyonlarda kullanılmaz.</div>
+  <?php endif; ?>
+  <?php if ($isSoldCar): ?>
+  <div class="alert alert-warning">Bu araç satıldı. Geçmiş kayıtları sistemde tutulmaya devam eder.</div>
+  <?php endif; ?>
+  <?php if ($status === 'car_sold'): ?>
+  <div class="alert alert-success">Araç satış kaydı oluşturuldu.</div>
+  <?php elseif ($status === 'car_sale_collected'): ?>
+  <div class="alert alert-success">Satış tahsilatı kaydedildi.</div>
+  <?php elseif ($status === 'car_sale_collection_cancelled'): ?>
+  <div class="alert alert-success">Satış tahsilatı geri alındı.</div>
+  <?php elseif ($status === 'car_sale_invalid'): ?>
+  <div class="alert alert-danger">Araç satış kaydı açılamadı.</div>
+  <?php elseif ($status === 'car_sale_collection_invalid'): ?>
+  <div class="alert alert-danger">Tahsilat tutarı geçersiz.</div>
+  <?php elseif ($status === 'car_sale_collection_updated'): ?>
+  <div class="alert alert-success">Satış tahsilatı güncellendi.</div>
+  <?php elseif ($status === 'car_sale_collection_update_invalid'): ?>
+  <div class="alert alert-danger">Satış tahsilatı güncelleme verisi geçersiz.</div>
+  <?php elseif ($status === 'car_sale_collection_update_conflict'): ?>
+  <div class="alert alert-danger">Bu tahsilat duzeyi toplam satis bedelini asiyor.</div>
+  <?php elseif ($status === 'car_sale_updated'): ?>
+  <div class="alert alert-success">Satış kaydı güncellendi.</div>
+  <?php elseif ($status === 'car_sale_update_invalid'): ?>
+  <div class="alert alert-danger">Satış güncelleme verisi geçersiz.</div>
+  <?php elseif ($status === 'car_sale_update_conflict'): ?>
+  <div class="alert alert-danger">Toplam satis tutari, tahsil edilenden dusuk olamaz.</div>
   <?php endif; ?>
   <div class="car-hero mb-4">
     <div class="car-hero-main">
@@ -92,6 +130,11 @@ require __DIR__ . '/includes/nav.php';
     </div>
     <div class="car-hero-actions">
       <div class="status-line rental-status-pill"><span class="status-dot <?= $statusClass ?>"></span><span><?= h($statusLabel) ?></span></div>
+      <?php if ($carSale && $carSalePendingAmount > 0 && auth_can('cars.manage')): ?>
+      <a href="car_sale_collect.php?car_id=<?= h((string) $id) ?>" class="btn btn-success">Satış Tahsilatı Düş</a>
+      <?php elseif (!$isSoldCar && auth_can('cars.manage') && $isAvailable): ?>
+      <a href="car_sale.php?car_id=<?= h((string) $id) ?>" class="btn btn-success">Aracı Sat</a>
+      <?php endif; ?>
       <a href="cars.php" class="btn btn-light">Araçlara Dön</a>
     </div>
   </div>
@@ -102,7 +145,20 @@ require __DIR__ . '/includes/nav.php';
     <div class="col-6 col-lg-3"><div class="stat-card bg-dark shadow-sm"><h6>Net Kar</h6><h3><?= money($totalProfit) ?></h3></div></div>
     <div class="col-6 col-lg-3"><div class="stat-card bg-success shadow-sm"><h6>Toplam Kiralama</h6><h3><?= h(count($rentals)) ?></h3></div></div>
     <div class="col-6 col-lg-3"><div class="stat-card bg-warning shadow-sm"><h6>Toplam KM</h6><h3><?= $mileageSummary['counted_rentals'] > 0 ? h(number_format((float) $mileageSummary['total_distance_km'], 0, ',', '.')) . ' km' : '-' ?></h3></div></div>
-    <div class="col-6 col-lg-3"><div class="stat-card bg-info shadow-sm"><h6>Gunluk Ort. KM</h6><h3><?= $mileageSummary['average_daily_km'] !== null ? h(number_format((float) $mileageSummary['average_daily_km'], 1, ',', '.')) . ' km' : '-' ?></h3></div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card bg-info shadow-sm"><h6>Günlük Ort. KM</h6><h3><?= $mileageSummary['average_daily_km'] !== null ? h(number_format((float) $mileageSummary['average_daily_km'], 1, ',', '.')) . ' km' : '-' ?></h3></div></div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">Araç Fotoğrafı</div>
+    <div class="card-body d-flex justify-content-center">
+      <?php if ($carPhotoUrl): ?>
+      <div class="car-photo-frame">
+        <img src="<?= h($carPhotoUrl) ?>?v=<?= h(rawurlencode((string) ($car['photo_path'] ?? 'car'))) ?>" alt="<?= h(trim($car['brand'] . ' ' . $car['model'])) ?>" style="<?= h(car_photo_position_style($car)) ?>">
+      </div>
+      <?php else: ?>
+      <div class="text-muted text-center py-5">Bu araç için henüz fotoğraf eklenmedi.</div>
+      <?php endif; ?>
+    </div>
   </div>
 
   <div class="row g-4 mb-4">
@@ -138,29 +194,29 @@ require __DIR__ . '/includes/nav.php';
   <div class="row g-4 mb-4">
     <div class="col-lg-5">
       <div class="card shadow-sm h-100">
-        <div class="card-header">Telematik Altyapisi</div>
+        <div class="card-header">Telematik Altyapısı</div>
         <div class="card-body">
           <div class="detail-grid detail-grid-single">
-            <div class="detail-item"><span class="detail-label">Durum</span><strong><?= $telematicsEnabled ? 'Hazir' : 'Bagli Degil' ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Durum</span><strong><?= $telematicsEnabled ? 'Hazır' : 'Bağlı Değil' ?></strong></div>
             <div class="detail-item"><span class="detail-label">Saglayici</span><strong><?= h($car['telematics_provider'] ?? '') ?: '-' ?></strong></div>
             <div class="detail-item"><span class="detail-label">Cihaz ID</span><strong><?= h($car['telematics_device_id'] ?? '') ?: '-' ?></strong></div>
             <div class="detail-item"><span class="detail-label">Son KM</span><strong><?= $car['telematics_last_odometer_km'] !== null ? h(number_format((int) $car['telematics_last_odometer_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
-            <div class="detail-item"><span class="detail-label">Kontak</span><strong><?= $car['telematics_ignition_on'] === null ? '-' : ((int) $car['telematics_ignition_on'] === 1 ? 'Acik' : 'Kapali') ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Kontak</span><strong><?= $car['telematics_ignition_on'] === null ? '-' : ((int) $car['telematics_ignition_on'] === 1 ? 'Açık' : 'Kapalı') ?></strong></div>
             <div class="detail-item"><span class="detail-label">Son Senkron</span><strong><?= !empty($car['telematics_last_sync_at']) ? dt($car['telematics_last_sync_at']) : '-' ?></strong></div>
             <div class="detail-item detail-item-full"><span class="detail-label">Son Konum</span><strong><?= h($telematicsLocation) ?></strong></div>
-            <div class="detail-item detail-item-full"><span class="detail-label">Canli Veri</span><strong><?= $telematicsHasLiveData ? 'Son odometre / kontak / konum verisi alinmis.' : 'API baglandiginda anlik km, konum ve kontak bilgisi burada gorunecek.' ?></strong></div>
+            <div class="detail-item detail-item-full"><span class="detail-label">Canlı Veri</span><strong><?= $telematicsHasLiveData ? 'Son odometre / kontak / konum verisi alınmış.' : 'API bağlandığında anlık km, konum ve kontak bilgisi burada görünecek.' ?></strong></div>
           </div>
         </div>
       </div>
     </div>
     <div class="col-lg-7">
       <div class="card shadow-sm h-100">
-        <div class="card-header">KM Performansi</div>
+        <div class="card-header">KM Performansı</div>
         <div class="card-body">
           <div class="detail-grid">
             <div class="detail-item"><span class="detail-label">Toplam Hesaplanan KM</span><strong><?= $mileageSummary['counted_rentals'] > 0 ? h(number_format((float) $mileageSummary['total_distance_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
             <div class="detail-item"><span class="detail-label">Toplam Hesaplanan Gun</span><strong><?= $mileageSummary['total_days'] > 0 ? h($mileageSummary['total_days']) . ' gun' : '-' ?></strong></div>
-            <div class="detail-item"><span class="detail-label">Ortalama Gunluk KM</span><strong><?= $mileageSummary['average_daily_km'] !== null ? h(number_format((float) $mileageSummary['average_daily_km'], 1, ',', '.')) . ' km' : '-' ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Ortalama Günlük KM</span><strong><?= $mileageSummary['average_daily_km'] !== null ? h(number_format((float) $mileageSummary['average_daily_km'], 1, ',', '.')) . ' km' : '-' ?></strong></div>
             <div class="detail-item"><span class="detail-label">KM Hesaplanan Kiralama</span><strong><?= h($mileageSummary['counted_rentals']) ?></strong></div>
             <div class="detail-item detail-item-full"><span class="detail-label">Canli Suren KM</span><strong><?= $mileageSummary['live_distance_km'] > 0 ? h(number_format((float) $mileageSummary['live_distance_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
           </div>
@@ -168,6 +224,57 @@ require __DIR__ . '/includes/nav.php';
       </div>
     </div>
   </div>
+
+  <?php if ($carSale): ?>
+  <div class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header">Satış Bilgisi</div>
+        <div class="card-body">
+          <div class="detail-grid">
+            <div class="detail-item"><span class="detail-label">Alıcı</span><strong><?= h($carSale['buyer_name'] ?? '-') ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Telefon</span><strong><?= h(($carSale['buyer_phone'] ?? '') !== '' ? $carSale['buyer_phone'] : '-') ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Satış Tarihi</span><strong><?= dt($carSale['sale_date'] ?? null) ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Vade</span><strong><?= !empty($carSale['payment_due_date']) ? dt($carSale['payment_due_date']) : '-' ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Toplam Satış</span><strong><?= money($carSale['total_amount'] ?? 0) ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Ödeme Durumu</span><strong><?= $carSalePaymentStatus === 'collected' ? 'Tahsil edildi' : ($carSalePaymentStatus === 'partial' ? 'Parçalı tahsil' : 'Bekliyor') ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Tahsil Edilen</span><strong><?= money($carSaleCollectedAmount) ?></strong></div>
+            <div class="detail-item"><span class="detail-label">Kalan</span><strong><?= money($carSalePendingAmount) ?></strong></div>
+            <div class="detail-item detail-item-full"><span class="detail-label">Not</span><strong><?= h(($carSale['note'] ?? '') !== '' ? $carSale['note'] : '-') ?></strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Satış Tahsilat Geçmişi</span>
+          <span class="badge bg-dark"><?= h((string) count($carSaleCollections)) ?> hareket</span>
+        </div>
+        <div class="card-body">
+          <?php if (empty($carSaleCollections)): ?>
+          <div class="text-muted">Bu satis icin henuz tahsilat girilmemis.</div>
+          <?php else: ?>
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+              <tr><th>Tarih</th><th>Tutar</th><th>Ödeme Tipi</th><th>Not</th><th>Durum</th></tr>
+              <?php foreach ($carSaleCollections as $saleCollection): ?>
+              <tr>
+                <td><?= dt($saleCollection['collected_at'] ?? null) ?></td>
+                <td><?= money($saleCollection['amount'] ?? 0) ?></td>
+                <td><?= h(($saleCollection['payment_method'] ?? '') !== '' ? $saleCollection['payment_method'] : '-') ?></td>
+                <td><?= h(($saleCollection['note'] ?? '') !== '' ? $saleCollection['note'] : '-') ?></td>
+                <td><?= car_sale_collection_is_active($saleCollection) ? 'Aktif' : 'Geri alındı' ?></td>
+              </tr>
+              <?php endforeach; ?>
+            </table>
+          </div>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <div class="card shadow-sm">
     <div class="card-header">Kiralama Geçmişi</div>

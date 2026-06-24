@@ -27,7 +27,8 @@ $companySt = $pdo->prepare('SELECT id, name, is_active FROM companies WHERE id =
 $companySt->execute([$companyId]);
 $company = $companySt->fetch(PDO::FETCH_ASSOC);
 
-$allowedRoles = array_keys(auth_assignable_role_options(auth_current_user(), $companyId));
+$roleSelection = auth_parse_role_selection($role);
+$allowedRoles = array_keys(auth_assignable_role_options_db($pdo, auth_current_user(), $companyId));
 if (!$company || $fullName === '' || $username === '' || !in_array($role, $allowedRoles, true)) {
     $redirect('invalid');
 }
@@ -47,7 +48,10 @@ if ($id > 0) {
         $redirect('invalid');
     }
 
-    if ($id === $currentUserId && $role !== (string) ($existingUser['role'] ?? '')) {
+    $existingCustomRoleId = isset($existingUser['custom_role_id']) ? (int) $existingUser['custom_role_id'] : null;
+    $isSameEffectiveRole = $roleSelection['role'] === (string) ($existingUser['role'] ?? '')
+        && (int) ($roleSelection['custom_role_id'] ?? 0) === (int) ($existingCustomRoleId ?? 0);
+    if ($id === $currentUserId && !$isSameEffectiveRole) {
         $redirect('self_role_locked');
     }
 
@@ -65,14 +69,14 @@ if ($id > 0) {
     }
 
     if ($password !== '') {
-        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, password_hash = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
-        $update->execute([$fullName, $username, $role, password_hash($password, PASSWORD_DEFAULT), $id, $companyId]);
+        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, custom_role_id = ?, password_hash = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
+        $update->execute([$fullName, $username, $roleSelection['role'], $roleSelection['custom_role_id'], password_hash($password, PASSWORD_DEFAULT), $id, $companyId]);
     } else {
-        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
-        $update->execute([$fullName, $username, $role, $id, $companyId]);
+        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, custom_role_id = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
+        $update->execute([$fullName, $username, $roleSelection['role'], $roleSelection['custom_role_id'], $id, $companyId]);
     }
 
-    auth_audit_log($pdo, 'platform.user_updated', 'Platform yoneticisi firma kullanicisini guncelledi.', [
+    auth_audit_log($pdo, 'platform.user_updated', 'Platform yöneticisi firma kullanıcısını güncelledi.', [
         'entity_type' => 'user',
         'entity_id' => $id,
         'company_id' => $companyId,
@@ -80,6 +84,8 @@ if ($id > 0) {
             'company_name' => (string) ($company['name'] ?? ''),
             'username' => $username,
             'role' => $role,
+            'effective_role' => $roleSelection['role'],
+            'custom_role_id' => $roleSelection['custom_role_id'],
         ],
     ]);
 } else {
@@ -93,11 +99,11 @@ if ($id > 0) {
         $redirect('username_exists');
     }
 
-    $insert = $pdo->prepare('INSERT INTO users (company_id, full_name, username, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())');
-    $insert->execute([$companyId, $fullName, $username, password_hash($password, PASSWORD_DEFAULT), $role]);
+    $insert = $pdo->prepare('INSERT INTO users (company_id, full_name, username, password_hash, role, custom_role_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, NOW())');
+    $insert->execute([$companyId, $fullName, $username, password_hash($password, PASSWORD_DEFAULT), $roleSelection['role'], $roleSelection['custom_role_id']]);
     $userId = (int) $pdo->lastInsertId();
 
-    auth_audit_log($pdo, 'platform.user_created', 'Platform yoneticisi firma kullanicisi olusturdu.', [
+    auth_audit_log($pdo, 'platform.user_created', 'Platform yöneticisi firma kullanıcısı oluşturdu.', [
         'entity_type' => 'user',
         'entity_id' => $userId,
         'company_id' => $companyId,
@@ -105,6 +111,8 @@ if ($id > 0) {
             'company_name' => (string) ($company['name'] ?? ''),
             'username' => $username,
             'role' => $role,
+            'effective_role' => $roleSelection['role'],
+            'custom_role_id' => $roleSelection['custom_role_id'],
         ],
     ]);
 }

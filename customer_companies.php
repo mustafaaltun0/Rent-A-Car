@@ -24,7 +24,7 @@ foreach ($customerCompanies as $customerCompany) {
 $customerCompaniesPagination = paginate_collection($customerCompanies, 'customer_page', 'customer_per_page', 10, [10, 20, 50, 100]);
 $customerCompanies = $customerCompaniesPagination['items'];
 
-$pageTitle = 'Kurumsal Musteriler';
+$pageTitle = 'Kurumsal Müşteriler';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
@@ -32,23 +32,23 @@ require __DIR__ . '/includes/nav.php';
   <div class="users-hero mb-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
     <div>
       <div class="users-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>
-      <h2 class="mb-0">Kurumsal Musteriler</h2>
+      <h2 class="mb-0">Kurumsal Müşteriler</h2>
     </div>
     <?php if ($canManageCustomers): ?>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#customerCompanyModal" data-mode="create">Musteri Firma Ekle</button>
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#customerCompanyModal" data-mode="create">Müşteri Firma Ekle</button>
     <?php endif; ?>
   </div>
 
   <?php if ($entryStatus === 'saved'): ?>
-  <div class="alert alert-success">Kurumsal musteri kaydi kaydedildi.</div>
+  <div class="alert alert-success">Kurumsal müşteri kaydı kaydedildi.</div>
   <?php elseif ($entryStatus === 'status_changed'): ?>
-  <div class="alert alert-success">Kurumsal musteri durumu guncellendi.</div>
+  <div class="alert alert-success">Kurumsal müşteri durumu güncellendi.</div>
   <?php elseif ($entryStatus === 'email_invalid'): ?>
-  <div class="alert alert-danger">E-posta formati gecersiz.</div>
+  <div class="alert alert-danger">E-posta formatı geçersiz.</div>
   <?php elseif ($entryStatus === 'duplicate'): ?>
-  <div class="alert alert-danger">Ayni isimde bir kurumsal musteri zaten kayitli.</div>
+  <div class="alert alert-danger">Aynı isimde bir kurumsal müşteri zaten kayıtlı.</div>
   <?php elseif ($entryStatus === 'inactive_blocked'): ?>
-  <div class="alert alert-danger">Aktif kiralamasi olan kurumsal musteri pasife alinamaz.</div>
+  <div class="alert alert-danger">Aktif kiralaması olan kurumsal müşteri pasife alınamaz.</div>
   <?php elseif ($entryStatus === 'invalid'): ?>
   <div class="alert alert-danger">Bilgileri kontrol edip tekrar dene.</div>
   <?php endif; ?>
@@ -57,7 +57,7 @@ require __DIR__ . '/includes/nav.php';
     <div class="col-6 col-xl-3">
       <div class="card shadow-sm h-100">
         <div class="card-body">
-          <div class="text-muted small mb-1">Toplam Musteri</div>
+          <div class="text-muted small mb-1">Toplam Müşteri</div>
           <div class="fs-3 fw-semibold"><?= h((string) $totalCustomerCount) ?></div>
         </div>
       </div>
@@ -87,14 +87,14 @@ require __DIR__ . '/includes/nav.php';
         <tr>
           <th>Firma</th>
           <th>Yetkili</th>
-          <th>Iletisim</th>
+          <th>İletişim</th>
           <th>Vergi</th>
           <th>Not</th>
           <th>Durum</th>
-          <th>Islem</th>
+          <th>İşlem</th>
         </tr>
         <?php if (empty($customerCompanies)): ?>
-        <tr><td colspan="7" class="text-center text-muted">Henuz kurumsal musteri kaydi yok.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted">Henüz kurumsal müşteri kaydı yok.</td></tr>
         <?php endif; ?>
         <?php foreach ($customerCompanies as $customerCompany): ?>
         <?php $customerCompanyId = (int) ($customerCompany['id'] ?? 0); ?>
@@ -122,8 +122,8 @@ require __DIR__ . '/includes/nav.php';
               <button
                 class="action-btn action-warning"
                 type="button"
-                title="Duzenle"
-                aria-label="Duzenle"
+                title="Düzenle"
+                aria-label="Düzenle"
                 data-bs-toggle="modal"
                 data-bs-target="#customerCompanyModal"
                 data-mode="edit"
@@ -148,7 +148,7 @@ require __DIR__ . '/includes/nav.php';
                   type="submit"
                   title="<?= (int) ($customerCompany['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>"
                   aria-label="<?= (int) ($customerCompany['is_active'] ?? 0) === 1 ? 'Pasife Al' : 'Aktif Et' ?>"
-                  data-confirm="<?= (int) ($customerCompany['is_active'] ?? 0) === 1 ? 'Bu kurumsal musteriyi pasife almak istediginize emin misiniz?' : 'Bu kurumsal musteriyi tekrar aktif etmek istediginize emin misiniz?' ?>"
+                  data-confirm="<?= (int) ($customerCompany['is_active'] ?? 0) === 1 ? 'Bu kurumsal müşteriyi pasife almak istediğinize emin misiniz?' : 'Bu kurumsal müşteriyi tekrar aktif etmek istediğinize emin misiniz?' ?>"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 5v10h-2V7h2Z"/></svg>
                 </button>
@@ -161,7 +161,7 @@ require __DIR__ . '/includes/nav.php';
         </tr>
         <?php endforeach; ?>
       </table>
-      <?= pagination_render($customerCompaniesPagination, ['item_label' => 'musteri firma']) ?>
+      <?= pagination_render($customerCompaniesPagination, ['item_label' => 'müşteri firma']) ?>
     </div>
   </div>
 </div>
@@ -171,7 +171,7 @@ require __DIR__ . '/includes/nav.php';
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Musteri Firma Ekle</h5>
+        <h5 class="modal-title">Müşteri Firma Ekle</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form action="actions/customer_company_save.php" method="post">
@@ -180,11 +180,11 @@ require __DIR__ . '/includes/nav.php';
           <input type="hidden" name="id" value="">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Firma Adi</label>
+              <label class="form-label">Firma Adı</label>
               <input name="company_name" class="form-control" maxlength="180" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Yetkili Kisi</label>
+              <label class="form-label">Yetkili Kişi</label>
               <input name="contact_name" class="form-control" maxlength="150">
             </div>
             <div class="col-md-6">
@@ -200,7 +200,7 @@ require __DIR__ . '/includes/nav.php';
               <input name="tax_office" class="form-control" maxlength="120">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Vergi Numarasi</label>
+              <label class="form-label">Vergi Numarası</label>
               <input name="tax_number" class="form-control" maxlength="30">
             </div>
             <div class="col-12">

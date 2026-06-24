@@ -1,0 +1,16 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/filokont/public_html
+    - /bin/cp .htaccess $DEPLOYPATH/.htaccess
+    - /bin/cp -R actions $DEPLOYPATH
+    - /bin/cp -R assets $DEPLOYPATH
+    - /bin/cp -R config $DEPLOYPATH
+    - /bin/cp -R includes $DEPLOYPATH
+    - /bin/cp -R tools $DEPLOYPATH
+    - /bin/cp -R storage $DEPLOYPATH
+    - /bin/cp *.php $DEPLOYPATH
+    - /bin/cp *.sql $DEPLOYPATH
+    - /bin/cp *.md $DEPLOYPATH
+    - /bin/cp *.ini $DEPLOYPATH
+    - /bin/cp *.js $DEPLOYPATH
+    - /bin/cp *.webmanifest $DEPLOYPATH

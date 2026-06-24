@@ -70,7 +70,7 @@ $update->execute([
     $companyId,
 ]);
 
-auth_audit_log($pdo, 'platform.company_updated', 'Platform yoneticisi firma profilini guncelledi.', [
+auth_audit_log($pdo, 'platform.company_updated', 'Platform yöneticisi firma profilini güncelledi.', [
     'entity_type' => 'company',
     'entity_id' => $companyId,
     'company_id' => $companyId,

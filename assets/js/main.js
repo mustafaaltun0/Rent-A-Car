@@ -135,14 +135,391 @@ function fillModalForm(modalId, config) {
 fillModalForm('carModal', {
   createTitle: 'Yeni Araç Ekle',
   editTitle: 'Araç Düzenle',
-  fields: ['id', 'plate', 'brand', 'model', 'telematics_enabled', 'telematics_provider', 'telematics_device_id', 'year', 'inspection_date', 'insurance_date', 'maintenance_date', 'maintenance_note'],
-  defaults: () => ({}),
+  fields: ['id', 'plate', 'brand', 'model', 'telematics_enabled', 'telematics_provider', 'telematics_device_id', 'year', 'inspection_date', 'insurance_date', 'maintenance_date', 'maintenance_note', 'photo_focus_x', 'photo_focus_y'],
+  defaults: () => ({
+    photo_focus_x: '50',
+    photo_focus_y: '50',
+  }),
 });
+
+const carModal = document.getElementById('carModal');
+if (carModal) {
+  const carForm = carModal.querySelector('form');
+  const photoFileInput = carForm?.querySelector('[name="photo_file"]');
+  const photoFocusXInput = carForm?.querySelector('[name="photo_focus_x"]');
+  const photoFocusYInput = carForm?.querySelector('[name="photo_focus_y"]');
+  const photoPreview = carForm?.querySelector('[data-car-photo-preview]');
+  const photoEmpty = carForm?.querySelector('[data-car-photo-empty]');
+  const photoFocusXLabel = carForm?.querySelector('[data-photo-focus-x-label]');
+  const photoFocusYLabel = carForm?.querySelector('[data-photo-focus-y-label]');
+  const photoDragSurface = carForm?.querySelector('[data-car-photo-drag-surface]');
+  const photoResetButton = carForm?.querySelector('[data-car-photo-reset]');
+  let photoPreviewObjectUrl = null;
+  let activePointerId = null;
+
+  const clampPhotoFocus = (value) => {
+    const numeric = Number.parseInt(String(value || '50'), 10);
+    if (!Number.isFinite(numeric)) return 50;
+    return Math.max(0, Math.min(100, numeric));
+  };
+
+  const setPhotoFocus = (focusX, focusY) => {
+    if (!photoFocusXInput || !photoFocusYInput) return;
+    photoFocusXInput.value = String(clampPhotoFocus(focusX));
+    photoFocusYInput.value = String(clampPhotoFocus(focusY));
+    applyPhotoPreviewPosition();
+  };
+
+  const applyPhotoPreviewPosition = () => {
+    if (!photoPreview || !photoFocusXInput || !photoFocusYInput) return;
+    const focusX = clampPhotoFocus(photoFocusXInput.value);
+    const focusY = clampPhotoFocus(photoFocusYInput.value);
+    photoPreview.style.objectPosition = `${focusX}% ${focusY}%`;
+    if (photoFocusXLabel) photoFocusXLabel.textContent = `${focusX}%`;
+    if (photoFocusYLabel) photoFocusYLabel.textContent = `${focusY}%`;
+  };
+
+  const setPhotoPreviewSource = (src) => {
+    if (!photoPreview || !photoEmpty) return;
+
+    const hasSource = typeof src === 'string' && src.trim() !== '';
+    if (hasSource) {
+      photoPreview.src = src;
+      photoPreview.hidden = false;
+      photoEmpty.hidden = true;
+    } else {
+      photoPreview.hidden = true;
+      photoPreview.removeAttribute('src');
+      photoEmpty.hidden = false;
+    }
+
+    applyPhotoPreviewPosition();
+  };
+
+  const syncFocusFromPointer = (clientX, clientY) => {
+    if (!photoDragSurface || !photoPreview || photoPreview.hidden) return;
+    const rect = photoDragSurface.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const focusX = ((clientX - rect.left) / rect.width) * 100;
+    const focusY = ((clientY - rect.top) / rect.height) * 100;
+    setPhotoFocus(focusX, focusY);
+  };
+
+  const resetPhotoPreviewObjectUrl = () => {
+    if (photoPreviewObjectUrl) {
+      URL.revokeObjectURL(photoPreviewObjectUrl);
+      photoPreviewObjectUrl = null;
+    }
+  };
+
+  if (photoFileInput) {
+    photoFileInput.addEventListener('change', () => {
+      resetPhotoPreviewObjectUrl();
+      const file = photoFileInput.files && photoFileInput.files[0] ? photoFileInput.files[0] : null;
+      if (!file) {
+        return;
+      }
+
+      photoPreviewObjectUrl = URL.createObjectURL(file);
+      setPhotoPreviewSource(photoPreviewObjectUrl);
+    });
+  }
+
+  [photoFocusXInput, photoFocusYInput].forEach((input) => {
+    if (!input) return;
+    input.addEventListener('input', applyPhotoPreviewPosition);
+    input.addEventListener('change', applyPhotoPreviewPosition);
+  });
+
+  if (photoResetButton) {
+    photoResetButton.addEventListener('click', () => {
+      setPhotoFocus(50, 50);
+    });
+  }
+
+  if (photoDragSurface) {
+    photoDragSurface.addEventListener('pointerdown', (event) => {
+      if (!photoPreview || photoPreview.hidden) return;
+      activePointerId = event.pointerId;
+      photoDragSurface.classList.add('is-dragging');
+      photoDragSurface.setPointerCapture?.(event.pointerId);
+      syncFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    photoDragSurface.addEventListener('pointermove', (event) => {
+      if (activePointerId !== event.pointerId) return;
+      syncFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    const stopDragging = (event) => {
+      if (activePointerId !== event.pointerId) return;
+      activePointerId = null;
+      photoDragSurface.classList.remove('is-dragging');
+      photoDragSurface.releasePointerCapture?.(event.pointerId);
+    };
+
+    photoDragSurface.addEventListener('pointerup', stopDragging);
+    photoDragSurface.addEventListener('pointercancel', stopDragging);
+    photoDragSurface.addEventListener('lostpointercapture', () => {
+      activePointerId = null;
+      photoDragSurface.classList.remove('is-dragging');
+    });
+  }
+
+  carModal.addEventListener('show.bs.modal', (event) => {
+    resetPhotoPreviewObjectUrl();
+    const trigger = event.relatedTarget;
+    const photoUrl = trigger?.getAttribute('data-photo_url') || trigger?.dataset.photoUrl || '';
+
+    window.requestAnimationFrame(() => {
+      if (photoFocusXInput) {
+        photoFocusXInput.value = String(clampPhotoFocus(photoFocusXInput.value));
+      }
+      if (photoFocusYInput) {
+        photoFocusYInput.value = String(clampPhotoFocus(photoFocusYInput.value));
+      }
+
+      setPhotoPreviewSource(photoUrl);
+    });
+  });
+
+  carModal.addEventListener('hidden.bs.modal', () => {
+    resetPhotoPreviewObjectUrl();
+    activePointerId = null;
+    photoDragSurface?.classList.remove('is-dragging');
+    setPhotoPreviewSource('');
+  });
+}
+
+const avatarEditorForm = document.querySelector('[data-avatar-editor]');
+if (avatarEditorForm) {
+  const avatarFileInput = avatarEditorForm.querySelector('[name="avatar_file"]');
+  const avatarFocusXInput = avatarEditorForm.querySelector('[name="avatar_focus_x"]');
+  const avatarFocusYInput = avatarEditorForm.querySelector('[name="avatar_focus_y"]');
+  const avatarRangeX = avatarEditorForm.querySelector('[data-avatar-focus-x]');
+  const avatarRangeY = avatarEditorForm.querySelector('[data-avatar-focus-y]');
+  const avatarPreview = avatarEditorForm.querySelector('[data-avatar-preview]');
+  const avatarEmpty = avatarEditorForm.querySelector('[data-avatar-empty]');
+  const avatarCardPreview = avatarEditorForm.querySelector('[data-avatar-card-preview]');
+  const avatarCardPlaceholder = avatarEditorForm.querySelector('[data-avatar-card-placeholder]');
+  const avatarFocusXLabel = avatarEditorForm.querySelector('[data-avatar-focus-x-label]');
+  const avatarFocusYLabel = avatarEditorForm.querySelector('[data-avatar-focus-y-label]');
+  const avatarDragSurface = avatarEditorForm.querySelector('[data-avatar-drag-surface]');
+  const avatarResetButton = avatarEditorForm.querySelector('[data-avatar-reset]');
+  const avatarControls = avatarEditorForm.querySelector('[data-avatar-controls]');
+  const avatarOpenPickerButton = avatarEditorForm.querySelector('[data-avatar-open-picker]');
+  const removeAvatarCheck = avatarEditorForm.querySelector('[name="remove_avatar"]');
+  let avatarPreviewObjectUrl = null;
+  let activeAvatarPointerId = null;
+  let avatarAdjustMode = false;
+  const initialAvatarSrc = avatarPreview && !avatarPreview.hidden ? avatarPreview.getAttribute('src') || '' : '';
+  const initialAvatarCardSrc = avatarCardPreview && !avatarCardPreview.classList.contains('d-none') ? avatarCardPreview.getAttribute('src') || '' : '';
+
+  const clampAvatarFocus = (value) => {
+    const numeric = Number.parseInt(String(value || '50'), 10);
+    if (!Number.isFinite(numeric)) return 50;
+    return Math.max(0, Math.min(100, numeric));
+  };
+
+  const applyAvatarPreviewPosition = () => {
+    if (!avatarPreview || !avatarFocusXInput || !avatarFocusYInput) return;
+    const focusX = clampAvatarFocus(avatarFocusXInput.value);
+    const focusY = clampAvatarFocus(avatarFocusYInput.value);
+    avatarPreview.style.objectPosition = `${focusX}% ${focusY}%`;
+    if (avatarCardPreview && !avatarCardPreview.classList.contains('d-none')) {
+      avatarCardPreview.style.objectPosition = `${focusX}% ${focusY}%`;
+    }
+    if (avatarRangeX) avatarRangeX.value = String(focusX);
+    if (avatarRangeY) avatarRangeY.value = String(focusY);
+    if (avatarFocusXInput) avatarFocusXInput.value = String(focusX);
+    if (avatarFocusYInput) avatarFocusYInput.value = String(focusY);
+    if (avatarFocusXLabel) avatarFocusXLabel.textContent = `${focusX}%`;
+    if (avatarFocusYLabel) avatarFocusYLabel.textContent = `${focusY}%`;
+  };
+
+  const setAvatarFocus = (focusX, focusY) => {
+    if (avatarFocusXInput) avatarFocusXInput.value = String(clampAvatarFocus(focusX));
+    if (avatarFocusYInput) avatarFocusYInput.value = String(clampAvatarFocus(focusY));
+    applyAvatarPreviewPosition();
+  };
+
+  const setAvatarAdjustMode = (enabled) => {
+    avatarAdjustMode = enabled;
+    if (avatarControls) {
+      avatarControls.classList.toggle('d-none', !enabled);
+    }
+    if (avatarDragSurface) {
+      avatarDragSurface.classList.toggle('is-adjustable', enabled);
+    }
+  };
+
+  const setAvatarPreviewSource = (src) => {
+    if (!avatarPreview || !avatarEmpty || !avatarDragSurface) return;
+    const hasSource = typeof src === 'string' && src.trim() !== '';
+    if (hasSource) {
+      avatarPreview.src = src;
+      avatarPreview.hidden = false;
+      avatarEmpty.hidden = true;
+      avatarDragSurface.classList.add('has-image');
+    } else {
+      avatarPreview.hidden = true;
+      avatarPreview.removeAttribute('src');
+      avatarEmpty.hidden = false;
+      avatarDragSurface.classList.remove('has-image');
+    }
+
+    applyAvatarPreviewPosition();
+  };
+
+  const setAvatarCardSource = (src) => {
+    if (!avatarCardPreview || !avatarCardPlaceholder) return;
+
+    const hasSource = typeof src === 'string' && src.trim() !== '';
+    if (hasSource) {
+      avatarCardPreview.src = src;
+      avatarCardPreview.classList.remove('d-none');
+      avatarCardPlaceholder.classList.add('d-none');
+      avatarCardPreview.style.objectPosition = avatarPreview?.style.objectPosition || '50% 50%';
+    } else {
+      avatarCardPreview.removeAttribute('src');
+      avatarCardPreview.classList.add('d-none');
+      avatarCardPlaceholder.classList.remove('d-none');
+    }
+  };
+
+  const resetAvatarPreviewObjectUrl = () => {
+    if (avatarPreviewObjectUrl) {
+      URL.revokeObjectURL(avatarPreviewObjectUrl);
+      avatarPreviewObjectUrl = null;
+    }
+  };
+
+  const syncAvatarFocusFromPointer = (clientX, clientY) => {
+    if (!avatarAdjustMode || !avatarDragSurface || !avatarPreview || avatarPreview.hidden) return;
+    const rect = avatarDragSurface.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const focusX = ((clientX - rect.left) / rect.width) * 100;
+    const focusY = ((clientY - rect.top) / rect.height) * 100;
+    setAvatarFocus(focusX, focusY);
+  };
+
+  if (avatarFileInput) {
+    if (avatarOpenPickerButton) {
+      avatarOpenPickerButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        avatarFileInput.value = '';
+
+        if (typeof avatarFileInput.showPicker === 'function') {
+          avatarFileInput.showPicker();
+          return;
+        }
+
+        avatarFileInput.click();
+      });
+    }
+
+    avatarFileInput.addEventListener('change', () => {
+      resetAvatarPreviewObjectUrl();
+      const file = avatarFileInput.files && avatarFileInput.files[0] ? avatarFileInput.files[0] : null;
+      if (!file) {
+        setAvatarAdjustMode(false);
+        if (!removeAvatarCheck?.checked && initialAvatarSrc) {
+          setAvatarPreviewSource(initialAvatarSrc);
+          setAvatarCardSource(initialAvatarCardSrc);
+        }
+        return;
+      }
+
+      if (removeAvatarCheck) removeAvatarCheck.checked = false;
+      avatarPreviewObjectUrl = URL.createObjectURL(file);
+      setAvatarPreviewSource(avatarPreviewObjectUrl);
+      setAvatarCardSource(avatarPreviewObjectUrl);
+      setAvatarAdjustMode(true);
+    });
+  }
+
+  [avatarRangeX, avatarRangeY].forEach((input) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      setAvatarFocus(avatarRangeX?.value || 50, avatarRangeY?.value || 50);
+    });
+    input.addEventListener('change', () => {
+      setAvatarFocus(avatarRangeX?.value || 50, avatarRangeY?.value || 50);
+    });
+  });
+
+  if (avatarResetButton) {
+    avatarResetButton.addEventListener('click', () => {
+      setAvatarFocus(50, 50);
+    });
+  }
+
+  if (removeAvatarCheck) {
+    removeAvatarCheck.addEventListener('change', () => {
+      if (removeAvatarCheck.checked) {
+        resetAvatarPreviewObjectUrl();
+        if (avatarFileInput) avatarFileInput.value = '';
+        setAvatarPreviewSource('');
+        setAvatarCardSource('');
+        setAvatarAdjustMode(false);
+      } else if (avatarFileInput?.files && avatarFileInput.files[0]) {
+        avatarPreviewObjectUrl = URL.createObjectURL(avatarFileInput.files[0]);
+        setAvatarPreviewSource(avatarPreviewObjectUrl);
+        setAvatarCardSource(avatarPreviewObjectUrl);
+        setAvatarAdjustMode(true);
+      } else if (initialAvatarSrc) {
+        setAvatarPreviewSource(initialAvatarSrc);
+        setAvatarCardSource(initialAvatarCardSrc);
+        setAvatarAdjustMode(false);
+      }
+    });
+  }
+
+  if (avatarDragSurface) {
+    avatarDragSurface.addEventListener('pointerdown', (event) => {
+      if (!avatarAdjustMode || !avatarPreview || avatarPreview.hidden) return;
+      activeAvatarPointerId = event.pointerId;
+      avatarDragSurface.classList.add('is-dragging');
+      avatarDragSurface.setPointerCapture?.(event.pointerId);
+      syncAvatarFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    avatarDragSurface.addEventListener('pointermove', (event) => {
+      if (activeAvatarPointerId !== event.pointerId) return;
+      syncAvatarFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    const stopAvatarDragging = (event) => {
+      if (activeAvatarPointerId !== event.pointerId) return;
+      activeAvatarPointerId = null;
+      avatarDragSurface.classList.remove('is-dragging');
+      avatarDragSurface.releasePointerCapture?.(event.pointerId);
+    };
+
+    avatarDragSurface.addEventListener('pointerup', stopAvatarDragging);
+    avatarDragSurface.addEventListener('pointercancel', stopAvatarDragging);
+    avatarDragSurface.addEventListener('lostpointercapture', () => {
+      activeAvatarPointerId = null;
+      avatarDragSurface.classList.remove('is-dragging');
+    });
+  }
+
+  applyAvatarPreviewPosition();
+  setAvatarCardSource(initialAvatarCardSrc);
+  setAvatarAdjustMode(false);
+}
 
 fillModalForm('rentalModal', {
   createTitle: 'Yeni Kiralama Ekle',
   editTitle: 'Kiralama Düzenle',
-  fields: ['id', 'customer_company_id', 'customer_name', 'customer_phone', 'customer_identity_no', 'car_id', 'start_date', 'rental_days', 'end_date', 'departure_km', 'income', 'expense'],
+  fields: ['id', 'customer_company_id', 'customer_name', 'customer_phone', 'customer_identity_no', 'car_id', 'start_date', 'rental_days', 'end_date', 'departure_km', 'income', 'collected_amount', 'payment_due_date', 'expense'],
   defaults: () => ({
     start_date: currentDateTimeLocal(),
     customer_company_id: '',
@@ -151,15 +528,15 @@ fillModalForm('rentalModal', {
 });
 
 fillModalForm('customerCompanyModal', {
-  createTitle: 'Musteri Firma Ekle',
-  editTitle: 'Musteri Firma Duzenle',
+  createTitle: 'Müşteri Firma Ekle',
+  editTitle: 'Müşteri Firma Düzenle',
   fields: ['id', 'company_name', 'contact_name', 'phone', 'email', 'tax_office', 'tax_number', 'address', 'notes'],
   defaults: () => ({}),
 });
 
 fillModalForm('platformUserModal', {
-  createTitle: 'Firma Kullanicisi Ekle',
-  editTitle: 'Firma Kullanicisini Duzenle',
+  createTitle: 'Firma Kullanıcısı Ekle',
+  editTitle: 'Firma Kullanıcısını Düzenle',
   fields: ['id', 'company_id', 'company_label', 'full_name', 'username', 'role'],
   defaults: () => ({}),
 });
@@ -184,8 +561,8 @@ if (platformUserModal) {
 }
 
 fillModalForm('managedCompanyUserModal', {
-  createTitle: 'Firma Kullanicisi Ekle',
-  editTitle: 'Firma Kullanicisini Duzenle',
+  createTitle: 'Firma Kullanıcısı Ekle',
+  editTitle: 'Firma Kullanıcısını Düzenle',
   fields: ['id', 'company_id', 'company_label', 'full_name', 'username', 'role'],
   defaults: () => ({}),
 });
@@ -218,6 +595,10 @@ if (rentalModal) {
   const startDateInput = rentalModal.querySelector('[name="start_date"]');
   const rentalDaysInput = rentalModal.querySelector('[name="rental_days"]');
   const endDateInput = rentalModal.querySelector('[name="end_date"]');
+  const incomeInput = rentalModal.querySelector('[name="income"]');
+  const collectedAmountInput = rentalModal.querySelector('[name="collected_amount"]');
+  const remainingAmountPreviewInput = rentalModal.querySelector('[name="remaining_amount_preview"]');
+  const paymentDueDateInput = rentalModal.querySelector('[name="payment_due_date"]');
 
   const syncEndDateFromDays = () => {
     if (!startDateInput || !rentalDaysInput || !endDateInput) return;
@@ -236,6 +617,31 @@ if (rentalModal) {
     endDate.setDate(endDate.getDate() + daysValue);
     const offsetMs = endDate.getTimezoneOffset() * 60000;
     endDateInput.value = new Date(endDate.getTime() - offsetMs).toISOString().slice(0, 16);
+  };
+
+  const formatCurrencyPreview = (value) => {
+    const safeValue = Number.isFinite(value) ? value : 0;
+    return `${safeValue.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} TL`;
+  };
+
+  const syncRentalCollectionPreview = () => {
+    if (!incomeInput || !remainingAmountPreviewInput) return;
+
+    const totalIncome = Number.parseFloat(incomeInput.value || '0');
+    const safeTotalIncome = Number.isFinite(totalIncome) ? Math.max(0, totalIncome) : 0;
+    const rawCollected = collectedAmountInput ? collectedAmountInput.value.trim() : '';
+    const collectedAmount = rawCollected === '' ? safeTotalIncome : Number.parseFloat(rawCollected || '0');
+    const safeCollectedAmount = Number.isFinite(collectedAmount) ? Math.max(0, Math.min(safeTotalIncome, collectedAmount)) : safeTotalIncome;
+    const remainingAmount = Math.max(0, safeTotalIncome - safeCollectedAmount);
+
+    remainingAmountPreviewInput.value = formatCurrencyPreview(remainingAmount);
+
+    if (paymentDueDateInput && remainingAmount <= 0) {
+      paymentDueDateInput.value = '';
+    }
   };
 
   if (nameInput) {
@@ -273,6 +679,14 @@ if (rentalModal) {
 
   if (rentalDaysInput) {
     rentalDaysInput.addEventListener('input', syncEndDateFromDays);
+  }
+
+  if (incomeInput) {
+    incomeInput.addEventListener('input', syncRentalCollectionPreview);
+  }
+
+  if (collectedAmountInput) {
+    collectedAmountInput.addEventListener('input', syncRentalCollectionPreview);
   }
 
   rentalModal.addEventListener('show.bs.modal', (event) => {
@@ -333,6 +747,8 @@ if (rentalModal) {
     if (departureKmInput) {
       departureKmInput.value = formatKm(departureKmInput.value);
     }
+
+    syncRentalCollectionPreview();
   });
 
   const rentalForm = rentalModal.querySelector('form');
@@ -340,6 +756,16 @@ if (rentalModal) {
     rentalForm.addEventListener('submit', () => {
       if (departureKmInput) {
         departureKmInput.value = cleanKm(departureKmInput.value);
+      }
+      if (collectedAmountInput && incomeInput) {
+        const totalIncome = Number.parseFloat(incomeInput.value || '0');
+        const safeTotalIncome = Number.isFinite(totalIncome) ? Math.max(0, totalIncome) : 0;
+        const rawCollected = collectedAmountInput.value.trim();
+        if (rawCollected !== '') {
+          const collectedAmount = Number.parseFloat(rawCollected || '0');
+          const safeCollectedAmount = Number.isFinite(collectedAmount) ? Math.max(0, Math.min(safeTotalIncome, collectedAmount)) : safeTotalIncome;
+          collectedAmountInput.value = String(safeCollectedAmount);
+        }
       }
     });
   }
@@ -387,8 +813,8 @@ fillModalForm('expenseModal', {
 });
 
 fillModalForm('businessPartnerModal', {
-  createTitle: 'Kisi Ekle',
-  editTitle: 'Kisi Duzenle',
+  createTitle: 'Kişi Ekle',
+  editTitle: 'Kişi Düzenle',
   fields: ['id', 'name', 'is_settlement_partner', 'sort_order'],
   defaults: () => ({
     is_settlement_partner: '1',
@@ -560,12 +986,98 @@ const editRentalExtensionModal = document.getElementById('editRentalExtensionMod
 if (editRentalExtensionModal) {
   const paymentStatusInput = editRentalExtensionModal.querySelector('[name="payment_status"]');
   const paymentDueDateInput = editRentalExtensionModal.querySelector('[name="payment_due_date"]');
+  const pricingModeInput = editRentalExtensionModal.querySelector('[name="pricing_mode"]');
+  const newEndDateInput = editRentalExtensionModal.querySelector('[name="new_end_date"]');
+  const additionalIncomeInput = editRentalExtensionModal.querySelector('[name="additional_income"]');
+  const originalExtensionDaysPreviewInput = editRentalExtensionModal.querySelector('[name="original_extension_days_preview"]');
+  const currentExtensionDaysPreviewInput = editRentalExtensionModal.querySelector('[name="current_extension_days_preview"]');
+  const dailyRatePreviewInput = editRentalExtensionModal.querySelector('[name="daily_rate_preview"]');
+  const suggestedIncomePreviewInput = editRentalExtensionModal.querySelector('[name="suggested_income_preview"]');
+  const applySuggestedIncomeButton = editRentalExtensionModal.querySelector('[data-apply-suggested-income]');
+  let extensionPricingState = {
+    originalPreviousEndDate: '',
+    originalNewEndDate: '',
+    originalIncome: 0,
+    suggestedIncome: 0,
+    manualIncomeOverride: false,
+  };
+
+  const formatCurrencyText = (value) => {
+    const safeValue = Number.isFinite(value) ? value : 0;
+    return `${safeValue.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} TL`;
+  };
+
+  const calculateExtensionDays = (startValue, endValue) => {
+    if (!startValue || !endValue) return 0;
+
+    const startDate = new Date(startValue);
+    const endDate = new Date(endValue);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 0;
+
+    const diffMs = endDate.getTime() - startDate.getTime();
+    if (diffMs <= 0) return 0;
+
+    return Math.ceil(diffMs / 86400000);
+  };
+
+  const syncExtensionIncomeSuggestion = () => {
+    if (!newEndDateInput || !additionalIncomeInput) return;
+
+    const originalDays = calculateExtensionDays(extensionPricingState.originalPreviousEndDate, extensionPricingState.originalNewEndDate);
+    const currentDays = calculateExtensionDays(extensionPricingState.originalPreviousEndDate, newEndDateInput.value);
+    const safeOriginalIncome = Number.isFinite(extensionPricingState.originalIncome) ? Math.max(0, extensionPricingState.originalIncome) : 0;
+    const dailyRate = originalDays > 0 ? (safeOriginalIncome / originalDays) : 0;
+    const suggestedIncome = Math.max(0, Math.round(dailyRate * currentDays * 100) / 100);
+
+    extensionPricingState.suggestedIncome = suggestedIncome;
+
+    if (originalExtensionDaysPreviewInput) {
+      originalExtensionDaysPreviewInput.value = originalDays > 0 ? `${originalDays} gun` : '-';
+    }
+    if (currentExtensionDaysPreviewInput) {
+      currentExtensionDaysPreviewInput.value = currentDays > 0 ? `${currentDays} gun` : '-';
+    }
+    if (dailyRatePreviewInput) {
+      dailyRatePreviewInput.value = originalDays > 0 ? formatCurrencyText(dailyRate) : '-';
+    }
+    if (suggestedIncomePreviewInput) {
+      suggestedIncomePreviewInput.value = currentDays > 0 ? formatCurrencyText(suggestedIncome) : '-';
+    }
+
+    if (!extensionPricingState.manualIncomeOverride && currentDays > 0) {
+      additionalIncomeInput.value = String(suggestedIncome);
+    }
+  };
 
   if (paymentStatusInput && paymentDueDateInput) {
     paymentStatusInput.addEventListener('change', () => {
       if (paymentStatusInput.value === 'collected') {
         paymentDueDateInput.value = '';
       }
+    });
+  }
+
+  if (newEndDateInput) {
+    newEndDateInput.addEventListener('change', syncExtensionIncomeSuggestion);
+    newEndDateInput.addEventListener('input', syncExtensionIncomeSuggestion);
+  }
+
+  if (additionalIncomeInput) {
+    additionalIncomeInput.addEventListener('input', () => {
+      extensionPricingState.manualIncomeOverride = true;
+      if (pricingModeInput) pricingModeInput.value = 'manual';
+    });
+  }
+
+  if (applySuggestedIncomeButton && additionalIncomeInput) {
+    applySuggestedIncomeButton.addEventListener('click', () => {
+      extensionPricingState.manualIncomeOverride = false;
+      if (pricingModeInput) pricingModeInput.value = 'auto_prorata';
+      additionalIncomeInput.value = String(extensionPricingState.suggestedIncome || 0);
+      syncExtensionIncomeSuggestion();
     });
   }
 
@@ -583,6 +1095,15 @@ if (editRentalExtensionModal) {
     editRentalExtensionModal.querySelector('[name="payment_status"]').value = trigger.dataset.payment_status || 'pending';
     editRentalExtensionModal.querySelector('[name="payment_due_date"]').value = trigger.dataset.payment_due_date || '';
     editRentalExtensionModal.querySelector('[name="note"]').value = trigger.dataset.note || '';
+    if (pricingModeInput) pricingModeInput.value = 'auto_prorata';
+    extensionPricingState = {
+      originalPreviousEndDate: trigger.dataset.original_previous_end_date || trigger.dataset.previous_end_date || '',
+      originalNewEndDate: trigger.dataset.original_new_end_date || trigger.dataset.new_end_date || '',
+      originalIncome: Number.parseFloat(trigger.dataset.original_income || trigger.dataset.additional_income || '0') || 0,
+      suggestedIncome: 0,
+      manualIncomeOverride: false,
+    };
+    syncExtensionIncomeSuggestion();
   });
 }
 

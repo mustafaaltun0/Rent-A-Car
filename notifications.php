@@ -26,40 +26,40 @@ require __DIR__ . '/includes/nav.php';
     <div>
       <div class="cars-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>
       <h2 class="mb-2">Bildirimler</h2>
-      <div class="car-hero-subtitle">Mobil push icin hazir merkezi operasyon uyarilari</div>
+      <div class="car-hero-subtitle">Mobil push için hazır merkezi operasyon uyarıları</div>
     </div>
     <?php if ($canManageNotifications): ?>
     <div class="rentals-hero-actions">
       <form action="actions/notification_mark_all_read.php" method="post">
         <?= auth_csrf_input() ?>
-        <button class="btn btn-outline-dark" type="submit">Tumunu Okundu Yap</button>
+        <button class="btn btn-outline-dark" type="submit">Tümünü Okundu Yap</button>
       </form>
     </div>
     <?php endif; ?>
   </div>
 
   <?php if ($flashStatus === 'read'): ?>
-  <div class="alert alert-success">Bildirim okundu olarak isaretlendi.</div>
+  <div class="alert alert-success">Bildirim okundu olarak işaretlendi.</div>
   <?php elseif ($flashStatus === 'resolved'): ?>
-  <div class="alert alert-success">Bildirim cozuldu olarak guncellendi.</div>
+  <div class="alert alert-success">Bildirim çözüldü olarak güncellendi.</div>
   <?php elseif ($flashStatus === 'all_read'): ?>
-  <div class="alert alert-success">Acik bildirimler okundu olarak isaretlendi.</div>
+  <div class="alert alert-success">Açık bildirimler okundu olarak işaretlendi.</div>
   <?php endif; ?>
 
   <div class="row g-3 mb-4">
-    <div class="col-6 col-xl-3"><div class="stat-card bg-primary shadow-sm"><h6>Acik</h6><h3><?= h((string) $summary['open_count']) ?></h3></div></div>
-    <div class="col-6 col-xl-3"><div class="stat-card bg-danger shadow-sm"><h6>Kritik Acik</h6><h3><?= h((string) $summary['critical_open_count']) ?></h3></div></div>
+    <div class="col-6 col-xl-3"><div class="stat-card bg-primary shadow-sm"><h6>Açık</h6><h3><?= h((string) $summary['open_count']) ?></h3></div></div>
+    <div class="col-6 col-xl-3"><div class="stat-card bg-danger shadow-sm"><h6>Kritik Açık</h6><h3><?= h((string) $summary['critical_open_count']) ?></h3></div></div>
     <div class="col-6 col-xl-3"><div class="stat-card bg-secondary shadow-sm"><h6>Okundu</h6><h3><?= h((string) $summary['read_count']) ?></h3></div></div>
-    <div class="col-6 col-xl-3"><div class="stat-card bg-success shadow-sm"><h6>Cozuldu</h6><h3><?= h((string) $summary['resolved_count']) ?></h3></div></div>
+    <div class="col-6 col-xl-3"><div class="stat-card bg-success shadow-sm"><h6>Çözüldü</h6><h3><?= h((string) $summary['resolved_count']) ?></h3></div></div>
   </div>
 
   <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span>Bildirim Merkezi</span>
       <div class="d-flex gap-2 flex-wrap">
-        <a href="notifications.php?status=open" class="btn btn-sm <?= $status === 'open' ? 'btn-dark' : 'btn-outline-dark' ?>">Acik</a>
+        <a href="notifications.php?status=open" class="btn btn-sm <?= $status === 'open' ? 'btn-dark' : 'btn-outline-dark' ?>">Açık</a>
         <a href="notifications.php?status=read" class="btn btn-sm <?= $status === 'read' ? 'btn-dark' : 'btn-outline-dark' ?>">Okundu</a>
-        <a href="notifications.php?status=resolved" class="btn btn-sm <?= $status === 'resolved' ? 'btn-dark' : 'btn-outline-dark' ?>">Cozuldu</a>
+        <a href="notifications.php?status=resolved" class="btn btn-sm <?= $status === 'resolved' ? 'btn-dark' : 'btn-outline-dark' ?>">Çözüldü</a>
       </div>
     </div>
     <div class="card-body">
@@ -75,8 +75,8 @@ require __DIR__ . '/includes/nav.php';
             $severity = (string) ($notification['severity'] ?? 'info');
             $statusLabel = match ((string) ($notification['status'] ?? 'open')) {
                 'read' => 'Okundu',
-                'resolved' => 'Cozuldu',
-                default => 'Acik',
+                'resolved' => 'Çözüldü',
+                default => 'Açık',
             };
           ?>
           <tr>
@@ -108,7 +108,7 @@ require __DIR__ . '/includes/nav.php';
                 <form action="actions/notification_resolve.php" method="post" class="d-inline">
                   <?= auth_csrf_input() ?>
                   <input type="hidden" name="id" value="<?= h((string) ($notification['id'] ?? 0)) ?>">
-                  <button class="action-btn action-success" type="submit" title="Cozuldu" aria-label="Cozuldu">
+                  <button class="action-btn action-success" type="submit" title="Çözüldü" aria-label="Çözüldü">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm-1 14-4-4 1.4-1.4 2.6 2.6 5.6-5.6L18 9l-7 7Z"/></svg>
                   </button>
                 </form>
@@ -127,8 +127,8 @@ require __DIR__ . '/includes/nav.php';
           $severity = (string) ($notification['severity'] ?? 'info');
           $statusLabel = match ((string) ($notification['status'] ?? 'open')) {
               'read' => 'Okundu',
-              'resolved' => 'Cozuldu',
-              default => 'Acik',
+              'resolved' => 'Çözüldü',
+              default => 'Açık',
           };
         ?>
         <div class="collection-mobile-card <?= $severity === 'danger' ? 'is-danger' : ($severity === 'warning' ? 'is-warning' : '') ?>">
@@ -154,7 +154,7 @@ require __DIR__ . '/includes/nav.php';
             <form action="actions/notification_resolve.php" method="post">
               <?= auth_csrf_input() ?>
               <input type="hidden" name="id" value="<?= h((string) ($notification['id'] ?? 0)) ?>">
-              <button class="btn btn-sm btn-success" type="submit">Cozuldu</button>
+              <button class="btn btn-sm btn-success" type="submit">Çözüldü</button>
             </form>
             <?php endif; ?>
           </div>

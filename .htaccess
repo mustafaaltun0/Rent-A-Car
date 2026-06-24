@@ -1,0 +1,23 @@
+Options -Indexes
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    RewriteRule ^(?:config|includes)/ - [F,L,NC]
+    RewriteRule ^(?:storage)/ - [F,L,NC]
+    RewriteRule (^|/)\.(?!well-known/) - [F,L,NC]
+    RewriteRule \.(?:sql|log|ini|md|env|dist|bak)$ - [F,L,NC]
+    RewriteRule ^(?:composer\.(?:json|lock)|package(?:-lock)?\.json|yarn\.lock)$ - [F,L,NC]
+</IfModule>

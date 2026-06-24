@@ -55,8 +55,8 @@ require __DIR__ . '/includes/header.php';
 ?>
 <div class="print-shell">
   <div class="print-toolbar">
-    <button type="button" class="btn btn-dark" onclick="window.print()">Yazdir</button>
-    <a href="rental_detail.php?id=<?= h((string) $rental['id']) ?>" class="btn btn-outline-dark">Detaya Don</a>
+    <button type="button" class="btn btn-dark" onclick="window.print()">Yazdır</button>
+    <a href="rental_detail.php?id=<?= h((string) $rental['id']) ?>" class="btn btn-outline-dark">Detaya Dön</a>
   </div>
 
   <div class="print-document">
@@ -81,11 +81,11 @@ require __DIR__ . '/includes/header.php';
     <div class="print-section">
       <h2>Tahsilat Bilgileri</h2>
       <div class="print-grid">
-        <div class="print-item"><span class="print-label">Musteri</span><strong><?= h($rental['customer_name']) ?></strong></div>
+        <div class="print-item"><span class="print-label">Müşteri</span><strong><?= h($rental['customer_name']) ?></strong></div>
         <div class="print-item"><span class="print-label">Telefon</span><strong><?= h($rental['customer_phone']) ?: '-' ?></strong></div>
-        <div class="print-item"><span class="print-label">Arac</span><strong><?= h($carLabel ?: '-') ?></strong></div>
-        <div class="print-item"><span class="print-label">Kiralama Donemi</span><strong><?= dt($rental['start_date']) ?> - <?= dt($rental['end_date']) ?></strong></div>
-        <div class="print-item"><span class="print-label">Odeme Tipi</span><strong><?= h($paymentMethodSummary) ?></strong></div>
+        <div class="print-item"><span class="print-label">Araç</span><strong><?= h($carLabel ?: '-') ?></strong></div>
+        <div class="print-item"><span class="print-label">Kiralama Dönemi</span><strong><?= dt($rental['start_date']) ?> - <?= dt($rental['end_date']) ?></strong></div>
+        <div class="print-item"><span class="print-label">Ödeme Tipi</span><strong><?= h($paymentMethodSummary) ?></strong></div>
         <div class="print-item print-item-full"><span class="print-label">Tahsil Edilen Tutar</span><strong><?= money($totals['income']) ?></strong></div>
         <?php if (($totals['pending_income'] ?? 0) > 0): ?><div class="print-item print-item-full"><span class="print-label">Bekleyen Tahsilat</span><strong><?= money($totals['pending_income']) ?></strong></div><?php endif; ?>
       </div>
@@ -96,7 +96,7 @@ require __DIR__ . '/includes/header.php';
       <h2>Tahsilat Hareketleri</h2>
       <div class="table-responsive">
         <table class="table table-sm table-bordered align-middle mb-0">
-          <tr><th>Tarih</th><th>Tutar</th><th>Odeme Tipi</th><th>Not</th></tr>
+          <tr><th>Tarih</th><th>Tutar</th><th>Ödeme Tipi</th><th>Not</th></tr>
           <?php foreach ($extensionCollections as $collection): ?>
           <tr>
             <td><?= dt($collection['collected_at'] ?? null) ?></td>
@@ -111,9 +111,9 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <div class="print-section">
-      <h2>Aciklama</h2>
+      <h2>Açıklama</h2>
       <div class="print-item print-item-full">
-        <?= h($rental['customer_name']) ?> isimli musteriden, <?= h($carLabel ?: 'ilgili arac') ?> kiralama islemine ait toplam tahsilat bu belge ile kayit altina alinmistir.
+        <?= h($rental['customer_name']) ?> isimli müşteriden, <?= h($carLabel ?: 'ilgili araç') ?> kiralama işlemine ait toplam tahsilat bu belge ile kayıt altına alınmıştır.
       </div>
     </div>
 
@@ -123,8 +123,8 @@ require __DIR__ . '/includes/header.php';
         <div class="text-muted mt-2">Ad Soyad / Imza</div>
       </div>
       <div class="print-signature-box">
-        <strong>Odeme Yapan</strong>
-        <div class="text-muted mt-2">Ad Soyad / Imza</div>
+        <strong>Ödeme Yapan</strong>
+        <div class="text-muted mt-2">Ad Soyad / İmza</div>
       </div>
     </div>
   </div>

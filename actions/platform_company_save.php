@@ -52,7 +52,7 @@ try {
     $insertUser->execute([$companyId, $adminFullName, $adminUsername, password_hash($adminPassword, PASSWORD_DEFAULT), 'super_admin']);
     $userId = (int) $pdo->lastInsertId();
 
-    auth_audit_log($pdo, 'platform.company_created', 'Yeni firma ve ilk yonetici olusturuldu.', [
+    auth_audit_log($pdo, 'platform.company_created', 'Yeni firma ve ilk yönetici oluşturuldu.', [
         'entity_type' => 'company',
         'entity_id' => $companyId,
         'metadata' => [

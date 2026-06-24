@@ -10,7 +10,7 @@ if (!app_feature_customer_companies_enabled()) {
     auth_redirect('index.php');
 }
 
-ensureCustomerCompanySchema($pdo);
+app_ensure_schema($pdo, 'customer_companies');
 $companyId = auth_current_company_id();
 
 $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -37,65 +37,80 @@ if ((int) $duplicateSt->fetchColumn() > 0) {
     auth_redirect('customer_companies.php?status=duplicate');
 }
 
-if ($id > 0) {
-    $existingSt = $pdo->prepare('SELECT id FROM customer_companies WHERE id = ? AND company_id = ? LIMIT 1');
-    $existingSt->execute([$id, $companyId]);
-    if (!$existingSt->fetch(PDO::FETCH_ASSOC)) {
-        auth_redirect('customer_companies.php?status=invalid');
+try {
+    $pdo->beginTransaction();
+
+    if ($id > 0) {
+        $existingSt = $pdo->prepare('SELECT id FROM customer_companies WHERE id = ? AND company_id = ? LIMIT 1');
+        $existingSt->execute([$id, $companyId]);
+        if (!$existingSt->fetch(PDO::FETCH_ASSOC)) {
+            throw new RuntimeException('Kayit bulunamadi.');
+        }
+
+        $update = $pdo->prepare('
+            UPDATE customer_companies
+            SET company_name = ?, contact_name = ?, phone = ?, email = ?, tax_office = ?, tax_number = ?, address = ?, notes = ?, updated_at = NOW()
+            WHERE id = ? AND company_id = ?
+        ');
+        $update->execute([
+            $companyName,
+            $contactName,
+            $phone,
+            $email,
+            $taxOffice,
+            $taxNumber,
+            $address,
+            $notes,
+            $id,
+            $companyId,
+        ]);
+
+        auth_audit_log($pdo, 'customer.company_updated', 'Kurumsal musteri guncellendi.', [
+            'entity_type' => 'customer_company',
+            'entity_id' => $id,
+            'company_id' => $companyId,
+            'metadata' => [
+                'company_name' => $companyName,
+                'contact_name' => $contactName,
+            ],
+        ]);
+    } else {
+        $insert = $pdo->prepare('
+            INSERT INTO customer_companies (company_id, company_name, contact_name, phone, email, tax_office, tax_number, address, notes, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ');
+        $insert->execute([
+            $companyId,
+            $companyName,
+            $contactName,
+            $phone,
+            $email,
+            $taxOffice,
+            $taxNumber,
+            $address,
+            $notes,
+        ]);
+
+        $customerCompanyId = (int) $pdo->lastInsertId();
+        auth_audit_log($pdo, 'customer.company_created', 'Kurumsal musteri olusturuldu.', [
+            'entity_type' => 'customer_company',
+            'entity_id' => $customerCompanyId,
+            'company_id' => $companyId,
+            'metadata' => [
+                'company_name' => $companyName,
+                'contact_name' => $contactName,
+            ],
+        ]);
     }
 
-    $update = $pdo->prepare('
-        UPDATE customer_companies
-        SET company_name = ?, contact_name = ?, phone = ?, email = ?, tax_office = ?, tax_number = ?, address = ?, notes = ?, updated_at = NOW()
-        WHERE id = ? AND company_id = ?
-    ');
-    $update->execute([
-        $companyName,
-        $contactName,
-        $phone,
-        $email,
-        $taxOffice,
-        $taxNumber,
-        $address,
-        $notes,
-        $id,
-        $companyId,
-    ]);
+    $pdo->commit();
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
 
-    auth_audit_log($pdo, 'customer.company_updated', 'Kurumsal musteri guncellendi.', [
-        'entity_type' => 'customer_company',
-        'entity_id' => $id,
-        'company_id' => $companyId,
-        'metadata' => [
-            'company_name' => $companyName,
-        ],
-    ]);
-} else {
-    $insert = $pdo->prepare('
-        INSERT INTO customer_companies (company_id, company_name, contact_name, phone, email, tax_office, tax_number, address, notes, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-    ');
-    $insert->execute([
-        $companyId,
-        $companyName,
-        $contactName,
-        $phone,
-        $email,
-        $taxOffice,
-        $taxNumber,
-        $address,
-        $notes,
-    ]);
-
-    $customerCompanyId = (int) $pdo->lastInsertId();
-    auth_audit_log($pdo, 'customer.company_created', 'Kurumsal musteri olusturuldu.', [
-        'entity_type' => 'customer_company',
-        'entity_id' => $customerCompanyId,
-        'company_id' => $companyId,
-        'metadata' => [
-            'company_name' => $companyName,
-        ],
-    ]);
+    error_log('customer_company_save_failed: ' . $exception->getMessage());
+    auth_redirect('customer_companies.php?status=error');
 }
 
 auth_redirect('customer_companies.php?status=saved');

@@ -1,8 +1,10 @@
-<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
+﻿<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
 <?php $authUser = function_exists('auth_current_user') ? auth_current_user() : null; ?>
 <?php $appBrandName = $authUser['company_name'] ?? 'RentecarWeb'; ?>
-<?php $assetVersion = '20260608-mobile-10'; ?>
+<?php $assetVersion = '20260621-utf8-avatar-flow-01'; ?>
 <?php $companyLogoUrl = ($authUser && !empty($authUser['company_logo_path']) && function_exists('auth_company_logo_public_url')) ? auth_company_logo_public_url(['company_logo_path' => $authUser['company_logo_path']]) . '?v=' . rawurlencode((string) ($authUser['company_logo_path'] ?? $assetVersion)) : null; ?>
+<?php $headerAvatarUrl = ($authUser && !empty($authUser['avatar_path']) && function_exists('auth_user_avatar_public_url')) ? auth_user_avatar_public_url($authUser) . '?v=' . rawurlencode((string) ($authUser['avatar_path'] ?? $assetVersion)) : null; ?>
+<?php $headerRoleLabel = $authUser ? (function_exists('auth_user_role_label') ? auth_user_role_label($authUser) : ((function_exists('auth_role_label') ? auth_role_label($authUser['role'] ?? null) : ($authUser['role'] ?? '-')))) : null; ?>
 <?php
 $headerNotificationFeedEnabled = $authUser && function_exists('auth_can') && auth_can('notifications.view');
 $headerNotificationOpenCount = 0;
@@ -31,6 +33,7 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
 <!doctype html>
 <html lang="tr">
 <head>
+  <?php if (!headers_sent()) { header('Content-Type: text/html; charset=UTF-8'); } ?>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
@@ -47,17 +50,25 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
 <nav class="navbar navbar-dark bg-dark shadow-sm app-navbar">
   <div class="container-fluid app-navbar-inner">
     <span class="navbar-brand mb-0 h1 app-brand-mark">
-      <?php if ($companyLogoUrl): ?><img src="<?= h($companyLogoUrl) ?>" alt="Firma logosu" class="app-brand-logo" width="44" height="44" style="width:44px; height:44px; min-width:44px; max-width:44px; min-height:44px; max-height:44px; object-fit:contain; display:block; flex:0 0 44px; overflow:hidden;"><?php endif; ?>
-      <span><?= h($appBrandName) ?></span>
+      <?php if ($companyLogoUrl): ?>
+      <span class="app-brand-logo-wrap">
+        <img src="<?= h($companyLogoUrl) ?>" alt="Firma logosu" class="app-brand-logo" width="44" height="44">
+      </span>
+      <?php endif; ?>
+      <span class="app-brand-copy">
+        <span class="app-brand-title"><?= h($appBrandName) ?></span>
+        <span class="app-brand-subtitle">Operasyon Paneli</span>
+      </span>
     </span>
     <?php if ($authUser): ?>
     <div class="app-navbar-user">
-      <div class="app-navbar-meta">
-        <strong><?= h($authUser['company_name'] ?? 'Firma') ?></strong>
-        <span><?= h($authUser['full_name'] ?? $authUser['username']) ?> / <?= h(function_exists('auth_role_label') ? auth_role_label($authUser['role'] ?? null) : ($authUser['role'] ?? '-')) ?></span>
+      <div class="app-navbar-meta d-none d-xl-flex">
+        <strong><?= h($authUser['full_name'] ?? $authUser['username']) ?></strong>
+        <span><?= h($headerRoleLabel ?? '-') ?></span>
       </div>
+      <div class="app-header-actions">
       <?php if ($headerNotificationFeedEnabled): ?>
-      <button class="btn btn-sm btn-outline-light app-notification-trigger" type="button" data-bs-toggle="offcanvas" data-bs-target="#globalNotificationDrawer" aria-controls="globalNotificationDrawer" aria-label="Mesaj Kutusu" title="Mesaj Kutusu">
+      <button class="btn btn-sm btn-outline-light app-header-action app-notification-trigger" type="button" data-bs-toggle="offcanvas" data-bs-target="#globalNotificationDrawer" aria-controls="globalNotificationDrawer" aria-label="Mesaj kutusu" title="Mesaj kutusu">
         <span class="app-notification-trigger-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2Z"/></svg>
         </span>
@@ -66,16 +77,25 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
         <?php endif; ?>
       </button>
       <?php endif; ?>
-      <a href="account_security.php" class="btn btn-sm btn-outline-light d-none d-md-inline-flex">Profil</a>
-      <form action="actions/logout.php" method="post" class="mb-0 d-none d-md-block">
+      <a href="account_security.php" class="btn btn-sm btn-outline-light app-header-action d-none d-lg-inline-flex" aria-label="Profil" title="Profil">
+        <?php if ($headerAvatarUrl): ?>
+        <img src="<?= h($headerAvatarUrl) ?>" alt="Profil fotoğrafı" class="app-header-avatar" width="24" height="24" style="<?= h(auth_avatar_position_style($authUser)) ?>">
+        <?php else: ?>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.33 0-6 1.79-6 4v1h12v-1c0-2.21-2.67-4-6-4Z"/></svg>
+        <?php endif; ?>
+      </a>
+      <form action="actions/logout.php" method="post" class="mb-0 d-none d-lg-block">
         <?= auth_csrf_input() ?>
-        <button class="btn btn-sm btn-outline-light" type="submit">Cikis</button>
+        <button class="btn btn-sm btn-outline-light app-header-action" type="submit" aria-label="Çıkış" title="Çıkış">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17v-2h4V9h-4V7h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4Zm-1-1-4-4 4-4 1.4 1.4L8.83 11H20v2H8.83l1.57 1.6L9 16Z"/></svg>
+        </button>
       </form>
-      <button class="btn btn-sm btn-outline-light app-menu-trigger d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMoreMenu" aria-controls="mobileMoreMenu" aria-label="Menu" title="Menu">
+      <button class="btn btn-sm btn-outline-light app-header-action app-menu-trigger d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMoreMenu" aria-controls="mobileMoreMenu" aria-label="Menü" title="Menü">
         <span class="app-menu-trigger-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M4 7h16v2H4V7Zm0 8h16v2H4v-2Zm0-4h16v2H4v-2Z"/></svg>
         </span>
       </button>
+      </div>
     </div>
     <?php endif; ?>
   </div>
@@ -92,19 +112,19 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
   <div class="offcanvas-body">
     <div class="app-notification-summary">
       <span class="dashboard-warning-chip is-dark">Toplam <?= h((string) $headerNotificationOpenCount) ?></span>
-      <?php if ($headerNotificationCriticalCount > 0): ?><span class="dashboard-warning-chip is-danger"><?= h((string) $headerNotificationCriticalCount) ?> oncelikli</span><?php endif; ?>
+      <?php if ($headerNotificationCriticalCount > 0): ?><span class="dashboard-warning-chip is-danger"><?= h((string) $headerNotificationCriticalCount) ?> öncelikli</span><?php endif; ?>
     </div>
 
     <?php if ($headerNotificationOpenCount > 0): ?>
     <form action="actions/notification_mark_all_read.php" method="post" class="mb-3">
       <?= auth_csrf_input() ?>
-      <button type="submit" class="btn btn-sm btn-outline-dark w-100">Tumunu Okundu Yap</button>
+      <button type="submit" class="btn btn-sm btn-outline-dark w-100">Tümünü Okundu Yap</button>
     </form>
     <?php endif; ?>
 
     <div class="app-notification-section">
       <?php if (empty($headerNotificationItems)): ?>
-      <div class="dashboard-alert-empty">Su an acik bildirim yok.</div>
+      <div class="dashboard-alert-empty">Şu an açık bildirim yok.</div>
       <?php else: ?>
         <?php foreach ($headerNotificationItems as $notification): ?>
         <div class="dashboard-alert-item <?= ($notification['severity'] ?? '') === 'danger' ? 'is-danger' : '' ?> <?= ($notification['status'] ?? 'open') === 'read' ? 'app-notification-card is-read' : 'app-notification-card' ?>">
@@ -124,3 +144,4 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
 <?php endif; ?>
 <div class="container-fluid">
   <div class="row">
+

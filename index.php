@@ -8,6 +8,7 @@ ensureRentalExtensionSchema($pdo);
 ensureRentalArchiveSchema($pdo);
 ensureCarOwnerSchema($pdo);
 ensureCarArchiveSchema($pdo);
+ensureCarSaleSchema($pdo);
 ensureExpenseArchiveSchema($pdo);
 ensureBusinessExpenseOwnerSchema($pdo);
 
@@ -30,22 +31,30 @@ $collectionsByExtensionId = getRentalExtensionCollectionsByExtensionId($pdo, $co
 
 $monthNames = [
     '01' => 'Ocak',
-    '02' => 'Subat',
+    '02' => 'Şubat',
     '03' => 'Mart',
     '04' => 'Nisan',
-    '05' => 'Mayis',
+    '05' => 'Mayıs',
     '06' => 'Haziran',
     '07' => 'Temmuz',
-    '08' => 'Agustos',
-    '09' => 'Eylul',
+    '08' => 'Ağustos',
+    '09' => 'Eylül',
     '10' => 'Ekim',
-    '11' => 'Kasim',
-    '12' => 'Aralik',
+    '11' => 'Kasım',
+    '12' => 'Aralık',
 ];
 
 $selectedOwnerCars = $cars;
 $selectedOwnerCarIds = array_map(static fn (array $car): int => (int) $car['id'], $cars);
 $selectedOwnerCarIdMap = array_fill_keys($selectedOwnerCarIds, true);
+$soldCarIdMap = [];
+foreach ($cars as $car) {
+    if (car_is_sold($car)) {
+        $soldCarIdMap[(int) ($car['id'] ?? 0)] = true;
+    }
+}
+$soldCars = count(array_filter($cars, static fn (array $car): bool => car_is_sold($car)));
+$fleetCars = max(0, count($cars) - $soldCars);
 $ownerRentals = array_values(array_filter($rentals, static function (array $rental) use ($selectedOwnerCarIdMap): bool {
     return isset($selectedOwnerCarIdMap[(int) ($rental['car_id'] ?? 0)]);
 }));
@@ -53,13 +62,13 @@ $ownerRentals = array_values(array_filter($rentals, static function (array $rent
 $totalCars = count($selectedOwnerCars);
 $rentedCars = 0;
 foreach ($activeRentalCarIds as $carId) {
-    if (isset($selectedOwnerCarIdMap[(int) $carId])) {
+    if (isset($selectedOwnerCarIdMap[(int) $carId]) && !isset($soldCarIdMap[(int) $carId])) {
         $rentedCars++;
     }
 }
-$availableCars = max(0, $totalCars - $rentedCars);
+$availableCars = max(0, $fleetCars - $rentedCars);
 $totalRentals = count($ownerRentals);
-$activeCars = $availableCars;
+$activeCars = $fleetCars;
 
 $totalIncome = 0.0;
 $totalExpense = 0.0;
@@ -120,10 +129,6 @@ foreach ($monthlyData as $monthKey => $values) {
     $yearlyProfit += (float) ($values[4] ?? 0);
 }
 
-$canManageRentals = auth_can('rentals.manage');
-$canManageCars = auth_can('cars.manage');
-$canManageLedger = auth_can('ledger.manage');
-
 $pageTitle = 'Anasayfa';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
@@ -133,15 +138,15 @@ require __DIR__ . '/includes/nav.php';
     <div class="home-hero-copy">
       <div class="home-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>
       <h2 class="mb-2">Anasayfa</h2>
-      <div class="home-hero-subtitle">Gunluk operasyon, tahsilat ve kar durumunu tek bakista takip et.</div>
+      <div class="home-hero-subtitle">Günlük operasyon, tahsilat ve kâr durumunu tek bakışta takip et.</div>
     </div>
   </div>
 
   <div class="row g-3 mb-4 home-stats">
-    <div class="col-6 col-xl-3"><div class="stat-card bg-primary shadow-sm"><h6>Toplam Arac</h6><h2><?= $totalCars ?></h2><p class="mb-0">Musait <?= $availableCars ?> / Kirada <?= $rentedCars ?></p></div></div>
+    <div class="col-6 col-xl-3"><div class="stat-card bg-primary shadow-sm"><h6>Toplam Araç</h6><h2><?= $totalCars ?></h2><p class="mb-0">Müsait <?= $availableCars ?> / Kirada <?= $rentedCars ?> / Satıldı <?= $soldCars ?></p></div></div>
     <div class="col-6 col-xl-3"><div class="stat-card bg-success shadow-sm"><h6>Bu Ay Gelir</h6><h2><?= money($monthlyIncome) ?></h2><p class="mb-0">Toplam kiralama <?= $totalRentals ?></p></div></div>
     <div class="col-6 col-xl-3"><div class="stat-card bg-warning shadow-sm"><h6>Bu Ay Gider</h6><h2><?= money($monthlyTotalExpense) ?></h2><p class="mb-0">Genel gider dahil</p></div></div>
-    <div class="col-6 col-xl-3"><div class="stat-card bg-dark shadow-sm"><h6>Bu Ay Net Kar</h6><h2><?= money($monthlyProfit) ?></h2><p class="mb-0">Bu aya ait net sonuc</p></div></div>
+    <div class="col-6 col-xl-3"><div class="stat-card bg-dark shadow-sm"><h6>Bu Ay Net Kâr</h6><h2><?= money($monthlyProfit) ?></h2><p class="mb-0">Bu aya ait net sonuç</p></div></div>
   </div>
 
   <div class="card shadow-sm mb-4 home-summary-card">
@@ -149,23 +154,19 @@ require __DIR__ . '/includes/nav.php';
     <div class="card-body">
       <div class="home-summary-grid">
         <div class="summary-tile">
-          <span class="summary-label">Aktif Arac</span>
+          <span class="summary-label">Aktif Araç</span>
           <strong><?= h((string) $activeCars) ?></strong>
         </div>
         <div class="summary-tile">
-          <span class="summary-label">Kiradaki Arac</span>
+          <span class="summary-label">Kiradaki Araç</span>
           <strong><?= h((string) $rentedCars) ?></strong>
-        </div>
-        <div class="summary-tile">
-          <span class="summary-label">Toplam Gider</span>
-          <strong><?= money($totalExpense) ?></strong>
         </div>
       </div>
     </div>
   </div>
 
   <div class="card shadow-sm mb-4 home-summary-card">
-    <div class="card-header">Bu Yilin Ozeti</div>
+    <div class="card-header">Bu Yılın Özeti</div>
     <div class="card-body">
       <div class="home-summary-grid">
         <div class="summary-tile">
@@ -177,7 +178,7 @@ require __DIR__ . '/includes/nav.php';
           <strong class="text-danger"><?= money($yearlyExpense) ?></strong>
         </div>
         <div class="summary-tile">
-          <span class="summary-label">Net Kar</span>
+          <span class="summary-label">Net Kâr</span>
           <strong class="text-primary"><?= money($yearlyProfit) ?></strong>
         </div>
       </div>
@@ -185,7 +186,7 @@ require __DIR__ . '/includes/nav.php';
   </div>
 
   <div class="card shadow-sm home-chart-card">
-    <div class="card-header">Aylik Net Kar Grafigi</div>
+    <div class="card-header">Aylık Net Kâr Grafiği</div>
     <div class="card-body">
       <div class="profit-list">
         <?php foreach ($monthlyProfitChart as $month => $profit): ?>

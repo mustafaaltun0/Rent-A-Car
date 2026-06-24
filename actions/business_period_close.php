@@ -6,23 +6,18 @@ auth_require_permission('ledger.manage');
 auth_require_post_request();
 auth_validate_csrf_request();
 
-ensureBusinessAccountsSchema($pdo);
+app_ensure_schema($pdo, 'finance_core');
 $companyId = auth_current_company_id();
 $openPeriod = getOpenBusinessAccountPeriod($pdo, $companyId);
-ensureLegacyBusinessAccountPeriod($pdo, $companyId, (int) $openPeriod['id']);
 
 $pdo->beginTransaction();
 try {
     $closeSt = $pdo->prepare("UPDATE ledger_periods SET status = 'CLOSED', settled_at = NOW() WHERE id = ? AND company_id = ?");
     $closeSt->execute([(int) $openPeriod['id'], $companyId]);
 
-    $legacyCloseSt = $pdo->prepare("UPDATE business_account_periods SET status = 'CLOSED', settled_at = NOW() WHERE id = ?");
-    $legacyCloseSt->execute([(int) $openPeriod['id']]);
-
     $createSt = $pdo->prepare("INSERT INTO ledger_periods (company_id, label, started_at, status) VALUES (?, ?, NOW(), 'OPEN')");
     $createSt->execute([$companyId, 'Acik Hesap']);
     $newPeriodId = (int) $pdo->lastInsertId();
-    ensureLegacyBusinessAccountPeriod($pdo, $companyId, $newPeriodId);
 
     $pdo->commit();
     auth_audit_log($pdo, 'ledger.period_closed', 'Acik hesap donemi kapatildi ve yeni donem acildi.', [
@@ -36,6 +31,8 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    error_log('business_period_close_failed: ' . $e->getMessage());
+    redirect('../business_accounts.php?period_status=error');
 }
 
-redirect('../business_accounts.php');
+redirect('../business_accounts.php?period_status=closed');

@@ -24,16 +24,28 @@ if (!$company) {
     auth_redirect('companies.php?status=invalid');
 }
 
-$update = $pdo->prepare('UPDATE companies SET is_active = ?, updated_at = NOW() WHERE id = ?');
-$update->execute([$isActive === 1 ? 1 : 0, $companyId]);
+try {
+    $pdo->beginTransaction();
 
-auth_audit_log($pdo, 'platform.company_status_changed', $isActive === 1 ? 'Firma tekrar aktif edildi.' : 'Firma pasife alindi.', [
-    'entity_type' => 'company',
-    'entity_id' => $companyId,
-    'metadata' => [
-        'company_name' => (string) ($company['name'] ?? ''),
-        'is_active' => $isActive === 1 ? 1 : 0,
-    ],
-]);
+    $update = $pdo->prepare('UPDATE companies SET is_active = ?, updated_at = NOW() WHERE id = ?');
+    $update->execute([$isActive === 1 ? 1 : 0, $companyId]);
+
+    auth_audit_log($pdo, 'platform.company_status_changed', $isActive === 1 ? 'Firma tekrar aktif edildi.' : 'Firma pasife alindi.', [
+        'entity_type' => 'company',
+        'entity_id' => $companyId,
+        'metadata' => [
+            'company_name' => (string) ($company['name'] ?? ''),
+            'is_active' => $isActive === 1 ? 1 : 0,
+        ],
+    ]);
+
+    $pdo->commit();
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('platform_company_toggle_failed: ' . $exception->getMessage());
+    auth_redirect('companies.php?status=invalid');
+}
 
 auth_redirect('companies.php?status=company_status_changed');

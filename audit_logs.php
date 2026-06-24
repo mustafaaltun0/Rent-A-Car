@@ -10,15 +10,15 @@ $paginationState = pagination_resolve_state('page', 'limit', 100, [50, 100, 150,
 $limit = $paginationState['per_page'];
 $page = $paginationState['page'];
 
-$baseSql = " FROM audit_logs l WHERE l.company_id = ? ";
+$baseWhereSql = " WHERE l.company_id = ? ";
 $params = [$companyId];
 
 if ($eventType !== '') {
-    $baseSql .= ' AND l.event_type = ?';
+    $baseWhereSql .= ' AND l.event_type = ?';
     $params[] = $eventType;
 }
 
-$countSt = $pdo->prepare('SELECT COUNT(*)' . $baseSql);
+$countSt = $pdo->prepare('SELECT COUNT(*) FROM audit_logs l' . $baseWhereSql);
 $countSt->execute($params);
 $totalLogs = (int) $countSt->fetchColumn();
 $totalPages = max(1, (int) ceil($totalLogs / max(1, $limit)));
@@ -29,7 +29,7 @@ $sql = "
     SELECT l.*, u.full_name, u.username
     FROM audit_logs l
     LEFT JOIN users u ON u.id = l.user_id
-" . $baseSql . ' ORDER BY l.created_at DESC, l.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
+" . $baseWhereSql . ' ORDER BY l.created_at DESC, l.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
 
 $st = $pdo->prepare($sql);
 $st->execute($params);
@@ -52,7 +52,7 @@ $eventTypeSt = $pdo->prepare('SELECT DISTINCT event_type FROM audit_logs WHERE c
 $eventTypeSt->execute([$companyId]);
 $eventTypes = $eventTypeSt->fetchAll(PDO::FETCH_COLUMN);
 
-$pageTitle = 'Audit Loglari';
+$pageTitle = 'Audit Logları';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
@@ -60,7 +60,7 @@ require __DIR__ . '/includes/nav.php';
   <div class="users-hero mb-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
     <div>
       <div class="users-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>
-      <h2 class="mb-0">Audit Loglari</h2>
+      <h2 class="mb-0">Audit Logları</h2>
     </div>
   </div>
 
@@ -71,14 +71,14 @@ require __DIR__ . '/includes/nav.php';
         <div class="col-md-5">
           <label class="form-label">Olay Tipi</label>
           <select name="event_type" class="form-select">
-            <option value="">Tum Olaylar</option>
+            <option value="">Tüm Olaylar</option>
             <?php foreach ($eventTypes as $type): ?>
               <option value="<?= h($type) ?>" <?= $eventType === $type ? 'selected' : '' ?>><?= h($type) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Kayit Limiti</label>
+          <label class="form-label">Kayıt Limiti</label>
           <select name="limit" class="form-select">
             <?php foreach ([50, 100, 150, 200] as $option): ?>
               <option value="<?= $option ?>" <?= $limit === $option ? 'selected' : '' ?>><?= $option ?></option>
@@ -93,12 +93,12 @@ require __DIR__ . '/includes/nav.php';
   </div>
 
   <div class="card shadow-sm">
-    <div class="card-header">Kayitlar</div>
+    <div class="card-header">Kayıtlar</div>
     <div class="card-body table-responsive">
       <table class="table table-bordered table-striped align-middle">
-        <tr><th>Tarih</th><th>Olay</th><th>Kullanici</th><th>Aciklama</th><th>IP</th><th>Detay</th></tr>
+        <tr><th>Tarih</th><th>Olay</th><th>Kullanıcı</th><th>Açıklama</th><th>IP</th><th>Detay</th></tr>
         <?php if (empty($logs)): ?>
-        <tr><td colspan="6" class="text-center text-muted">Gosterilecek log kaydi yok.</td></tr>
+        <tr><td colspan="6" class="text-center text-muted">Gösterilecek log kaydı yok.</td></tr>
         <?php endif; ?>
         <?php foreach ($logs as $log): ?>
           <?php
@@ -121,7 +121,7 @@ require __DIR__ . '/includes/nav.php';
         </tr>
         <?php endforeach; ?>
       </table>
-      <?= pagination_render($logsPagination, ['item_label' => 'log kaydi']) ?>
+      <?= pagination_render($logsPagination, ['item_label' => 'log kaydı']) ?>
     </div>
   </div>
 </div>

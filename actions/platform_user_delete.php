@@ -42,9 +42,9 @@ if (in_array($existingRole, ['platform_admin', 'super_admin'], true) && auth_act
 }
 
 $delete = $pdo->prepare('UPDATE users SET archived_at = NOW(), archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND company_id = ?');
-$delete->execute([$currentUserId > 0 ? $currentUserId : null, 'Platform yoneticisi tarafindan arsive alindi.', $id, $companyId]);
+$delete->execute([$currentUserId > 0 ? $currentUserId : null, 'Platform yöneticisi tarafından arşive alındı.', $id, $companyId]);
 
-auth_audit_log($pdo, 'platform.user_archived', 'Platform yoneticisi firma kullanicisini arsive aldi.', [
+auth_audit_log($pdo, 'platform.user_archived', 'Platform yöneticisi firma kullanıcısını arşive aldı.', [
     'entity_type' => 'user',
     'entity_id' => $id,
     'company_id' => $companyId,

@@ -14,7 +14,8 @@ $username = trim($_POST['username'] ?? '');
 $role = trim($_POST['role'] ?? 'viewer');
 $password = (string) ($_POST['password'] ?? '');
 
-$allowedRoles = array_keys(auth_assignable_role_options(auth_current_user(), $companyId));
+$roleSelection = auth_parse_role_selection($role);
+$allowedRoles = array_keys(auth_assignable_role_options_db($pdo, auth_current_user(), $companyId));
 if ($fullName === '' || $username === '' || !in_array($role, $allowedRoles, true)) {
     auth_redirect('users.php?status=invalid');
 }
@@ -34,7 +35,10 @@ if ($id > 0) {
         auth_redirect('users.php?status=invalid');
     }
 
-    if ($id === $currentUserId && $role !== ($existingUser['role'] ?? '')) {
+    $existingCustomRoleId = isset($existingUser['custom_role_id']) ? (int) $existingUser['custom_role_id'] : null;
+    $isSameEffectiveRole = $roleSelection['role'] === ($existingUser['role'] ?? '')
+        && (int) ($roleSelection['custom_role_id'] ?? 0) === (int) ($existingCustomRoleId ?? 0);
+    if ($id === $currentUserId && !$isSameEffectiveRole) {
         auth_redirect('users.php?status=self_role_locked');
     }
 
@@ -49,19 +53,21 @@ if ($id > 0) {
     }
 
     if ($password !== '') {
-        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, password_hash = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
-        $update->execute([$fullName, $username, $role, password_hash($password, PASSWORD_DEFAULT), $id, $companyId]);
+        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, custom_role_id = ?, password_hash = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
+        $update->execute([$fullName, $username, $roleSelection['role'], $roleSelection['custom_role_id'], password_hash($password, PASSWORD_DEFAULT), $id, $companyId]);
     } else {
-        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
-        $update->execute([$fullName, $username, $role, $id, $companyId]);
+        $update = $pdo->prepare('UPDATE users SET full_name = ?, username = ?, role = ?, custom_role_id = ? WHERE id = ? AND company_id = ? AND archived_at IS NULL');
+        $update->execute([$fullName, $username, $roleSelection['role'], $roleSelection['custom_role_id'], $id, $companyId]);
     }
 
-    auth_audit_log($pdo, 'user.updated', 'Kullanici bilgileri guncellendi.', [
+    auth_audit_log($pdo, 'user.updated', 'Kullanıcı bilgileri güncellendi.', [
         'entity_type' => 'user',
         'entity_id' => $id,
         'metadata' => [
             'username' => $username,
             'role' => $role,
+            'effective_role' => $roleSelection['role'],
+            'custom_role_id' => $roleSelection['custom_role_id'],
         ],
     ]);
 } else {
@@ -75,16 +81,18 @@ if ($id > 0) {
         auth_redirect('users.php?status=username_exists');
     }
 
-    $insert = $pdo->prepare('INSERT INTO users (company_id, full_name, username, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, 1)');
-    $insert->execute([$companyId, $fullName, $username, password_hash($password, PASSWORD_DEFAULT), $role]);
+    $insert = $pdo->prepare('INSERT INTO users (company_id, full_name, username, password_hash, role, custom_role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)');
+    $insert->execute([$companyId, $fullName, $username, password_hash($password, PASSWORD_DEFAULT), $roleSelection['role'], $roleSelection['custom_role_id']]);
     $newUserId = (int) $pdo->lastInsertId();
 
-    auth_audit_log($pdo, 'user.created', 'Yeni kullanici olusturuldu.', [
+    auth_audit_log($pdo, 'user.created', 'Yeni kullanıcı oluşturuldu.', [
         'entity_type' => 'user',
         'entity_id' => $newUserId,
         'metadata' => [
             'username' => $username,
             'role' => $role,
+            'effective_role' => $roleSelection['role'],
+            'custom_role_id' => $roleSelection['custom_role_id'],
         ],
     ]);
 }

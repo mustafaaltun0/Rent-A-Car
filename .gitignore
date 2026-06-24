@@ -1,0 +1,7 @@
+.env
+storage/car-photos/*
+!storage/car-photos/.gitkeep
+storage/company-logos/*
+!storage/company-logos/.gitkeep
+storage/user-avatars/*
+!storage/user-avatars/.gitkeep

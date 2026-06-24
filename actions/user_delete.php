@@ -14,13 +14,13 @@ if ($id <= 0) {
     auth_redirect('users.php?status=invalid');
 }
 
-if ($id === $currentUserId) {
+if ($id === $currentUserId || $companyId <= 0 || $currentUserId <= 0) {
     auth_redirect('users.php?status=self_delete_blocked');
 }
 
 $userSt = $pdo->prepare('SELECT * FROM users WHERE id = ? AND company_id = ?');
 $userSt->execute([$id, $companyId]);
-$user = $userSt->fetch();
+$user = $userSt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
     auth_redirect('users.php?status=invalid');
 }
@@ -29,16 +29,29 @@ if (($user['role'] ?? '') === 'super_admin' && auth_active_super_admin_count($pd
     auth_redirect('users.php?status=last_admin_blocked');
 }
 
-$delete = $pdo->prepare('UPDATE users SET archived_at = NOW(), archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND company_id = ?');
-$delete->execute([$currentUserId > 0 ? $currentUserId : null, 'Kullanici tarafindan arsive alindi.', $id, $companyId]);
+try {
+    $pdo->beginTransaction();
 
-auth_audit_log($pdo, 'user.archived', 'Kullanici arsive alindi.', [
-    'entity_type' => 'user',
-    'entity_id' => $id,
-    'metadata' => [
-        'username' => (string) ($user['username'] ?? ''),
-        'role' => (string) ($user['role'] ?? ''),
-    ],
-]);
+    $delete = $pdo->prepare('UPDATE users SET archived_at = NOW(), archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND company_id = ?');
+    $delete->execute([$currentUserId, 'Kullanici tarafindan arsive alindi.', $id, $companyId]);
+
+    auth_audit_log($pdo, 'user.archived', 'Kullanici arsive alindi.', [
+        'entity_type' => 'user',
+        'entity_id' => $id,
+        'company_id' => $companyId,
+        'metadata' => [
+            'username' => (string) ($user['username'] ?? ''),
+            'role' => (string) ($user['role'] ?? ''),
+        ],
+    ]);
+
+    $pdo->commit();
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('user_delete_failed: ' . $exception->getMessage());
+    auth_redirect('users.php?status=delete_error');
+}
 
 auth_redirect('users.php?status=deleted');

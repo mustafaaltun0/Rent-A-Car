@@ -34,7 +34,7 @@ if (!$user) {
 $update = $pdo->prepare('UPDATE users SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL WHERE id = ? AND company_id = ?');
 $update->execute([$id, $companyId]);
 
-auth_audit_log($pdo, 'platform.user_restored', 'Platform yoneticisi firma kullanicisini arsivden geri yukledi.', [
+auth_audit_log($pdo, 'platform.user_restored', 'Platform yöneticisi firma kullanıcısını arşivden geri yükledi.', [
     'entity_type' => 'user',
     'entity_id' => $id,
     'company_id' => $companyId,

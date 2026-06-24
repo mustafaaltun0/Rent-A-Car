@@ -54,7 +54,7 @@ try {
     $deleteCompany = $pdo->prepare('DELETE FROM companies WHERE id = ? LIMIT 1');
     $deleteCompany->execute([$companyId]);
 
-    auth_audit_log($pdo, 'platform.company_deleted', 'Pasif ve bos firma kalici olarak silindi.', [
+    auth_audit_log($pdo, 'platform.company_deleted', 'Pasif ve boş firma kalıcı olarak silindi.', [
         'entity_type' => 'company',
         'entity_id' => $companyId,
         'metadata' => [

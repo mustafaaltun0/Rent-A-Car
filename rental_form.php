@@ -7,6 +7,7 @@ auth_require_permission('rentals.manage');
 ensureRentalExtensionSchema($pdo);
 ensureRentalArchiveSchema($pdo);
 ensureCarArchiveSchema($pdo);
+ensureCarSaleSchema($pdo);
 ensureCustomerCompanySchema($pdo);
 $companyId = auth_current_company_id();
 $customerCompaniesEnabled = app_feature_customer_companies_enabled();
@@ -21,6 +22,8 @@ $rental = [
     'end_date' => '',
     'departure_km' => '',
     'income' => '',
+    'collected_amount' => '',
+    'payment_due_date' => '',
     'expense' => '',
     'car_id' => '',
 ];
@@ -34,16 +37,16 @@ if ($id > 0) {
     }
 }
 
-$carsSt = $pdo->prepare('SELECT * FROM cars WHERE company_id = ? AND archived_at IS NULL ORDER BY brand, model');
+$carsSt = $pdo->prepare('SELECT * FROM cars WHERE company_id = ? AND archived_at IS NULL AND sold_at IS NULL ORDER BY brand, model');
 $carsSt->execute([$companyId]);
 $cars = $carsSt->fetchAll(PDO::FETCH_ASSOC);
 $customerCompanies = $customerCompaniesEnabled ? getCustomerCompanies($pdo, $companyId) : [];
 
-$pageTitle = $id ? 'Kiralama Duzenle' : 'Yeni Kiralama';
+$pageTitle = $id ? 'Kiralama Düzenle' : 'Yeni Kiralama';
 require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
-<h2 class="mb-4"><?= $id ? 'Kiralama Duzenle' : 'Yeni Kiralama Ekle' ?></h2>
+<h2 class="mb-4"><?= $id ? 'Kiralama Düzenle' : 'Yeni Kiralama Ekle' ?></h2>
 <form action="actions/rental_save.php" method="post" class="card shadow-sm">
   <div class="card-body">
     <?= auth_csrf_input() ?>
@@ -51,9 +54,9 @@ require __DIR__ . '/includes/nav.php';
     <div class="row g-3">
       <?php if ($customerCompaniesEnabled): ?>
       <div class="col-md-6">
-        <label class="form-label">Kurumsal Musteri</label>
+        <label class="form-label">Kurumsal Müşteri</label>
         <select name="customer_company_id" class="form-select">
-          <option value="">Bireysel / Secilmedi</option>
+          <option value="">Bireysel / Seçilmedi</option>
           <?php foreach ($customerCompanies as $customerCompany): ?>
           <?php
             $customerCompanyId = (string) ($customerCompany['id'] ?? '');
@@ -67,17 +70,19 @@ require __DIR__ . '/includes/nav.php';
         </select>
       </div>
       <?php endif; ?>
-      <div class="col-md-6"><label class="form-label">Musteri Adi</label><input name="customer_name" class="form-control" value="<?= h($rental['customer_name']) ?>" required></div>
+      <div class="col-md-6"><label class="form-label">Müşteri Adı</label><input name="customer_name" class="form-control" value="<?= h($rental['customer_name']) ?>" required></div>
       <div class="col-md-6"><label class="form-label">Telefon</label><input name="customer_phone" class="form-control" value="<?= h($rental['customer_phone']) ?>"></div>
       <div class="col-md-6"><label class="form-label">TC Kimlik No</label><input name="customer_identity_no" class="form-control" value="<?= h($rental['customer_identity_no']) ?>" maxlength="11"></div>
-      <div class="col-md-6"><label class="form-label">Arac</label><select name="car_id" class="form-select" required><?php foreach ($cars as $car): ?><option value="<?= h($car['id']) ?>" <?= (string) $rental['car_id'] === (string) $car['id'] ? 'selected' : '' ?>><?= h($car['brand'] . ' ' . $car['model'] . ' - ' . $car['plate']) ?></option><?php endforeach; ?></select></div>
-      <div class="col-md-6"><label class="form-label">Baslangic</label><input name="start_date" type="datetime-local" class="form-control" value="<?= h($rental['start_date'] ? date('Y-m-d\TH:i', strtotime($rental['start_date'])) : '') ?>"></div>
-      <div class="col-md-6"><label class="form-label">Bitis</label><input name="end_date" type="datetime-local" class="form-control" value="<?= h($rental['end_date'] ? date('Y-m-d\TH:i', strtotime($rental['end_date'])) : '') ?>"></div>
-      <div class="col-md-6"><label class="form-label">Cikis KM</label><input name="departure_km" class="form-control" value="<?= h($rental['departure_km']) ?>"></div>
+      <div class="col-md-6"><label class="form-label">Araç</label><select name="car_id" class="form-select" required><?php foreach ($cars as $car): ?><option value="<?= h($car['id']) ?>" <?= (string) $rental['car_id'] === (string) $car['id'] ? 'selected' : '' ?>><?= h($car['brand'] . ' ' . $car['model'] . ' - ' . $car['plate']) ?></option><?php endforeach; ?></select></div>
+      <div class="col-md-6"><label class="form-label">Başlangıç</label><input name="start_date" type="datetime-local" class="form-control" value="<?= h($rental['start_date'] ? date('Y-m-d\TH:i', strtotime($rental['start_date'])) : '') ?>"></div>
+      <div class="col-md-6"><label class="form-label">Bitiş</label><input name="end_date" type="datetime-local" class="form-control" value="<?= h($rental['end_date'] ? date('Y-m-d\TH:i', strtotime($rental['end_date'])) : '') ?>"></div>
+      <div class="col-md-6"><label class="form-label">Çıkış KM</label><input name="departure_km" class="form-control" value="<?= h($rental['departure_km']) ?>"></div>
       <div class="col-md-3"><label class="form-label">Gelir</label><input name="income" type="number" step="0.01" class="form-control" value="<?= h($rental['income']) ?>"></div>
-      <div class="col-md-3"><label class="form-label">Arac Masrafi</label><input name="expense" type="number" step="0.01" class="form-control" value="<?= h($rental['expense']) ?>"></div>
+      <div class="col-md-3"><label class="form-label">Tahsil Edilen</label><input name="collected_amount" type="number" step="0.01" min="0" class="form-control" value="<?= h($rental['collected_amount']) ?>" placeholder="Boşsa tamamı tahsil edildi sayılır"></div>
+      <div class="col-md-6"><label class="form-label">Beklenen Tahsilat Tarihi</label><input name="payment_due_date" type="datetime-local" class="form-control" value="<?= h($rental['payment_due_date'] ? date('Y-m-d\\TH:i', strtotime($rental['payment_due_date'])) : '') ?>"></div>
+      <div class="col-md-3"><label class="form-label">Araç Masrafı</label><input name="expense" type="number" step="0.01" class="form-control" value="<?= h($rental['expense']) ?>"></div>
     </div>
   </div>
-  <div class="card-footer"><button class="btn btn-success">Kaydet</button> <a href="rentals.php" class="btn btn-secondary">Iptal</a></div>
+  <div class="card-footer"><button class="btn btn-success">Kaydet</button> <a href="rentals.php" class="btn btn-secondary">İptal</a></div>
 </form>
 <?php require __DIR__ . '/includes/footer.php'; ?>

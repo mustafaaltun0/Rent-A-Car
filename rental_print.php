@@ -26,13 +26,13 @@ $document = rental_ensure_document($pdo, $companyId, (int) $rental['id'], 'renta
 $carLabel = trim(($rental['brand'] ?? '') . ' ' . ($rental['model'] ?? '') . ' - ' . ($rental['plate'] ?? ''));
 $companyLogoUrl = auth_company_logo_public_url($company);
 $companyLogoVersion = rawurlencode((string) ($company['logo_path'] ?? 'logo'));
-$pageTitle = 'Kiralama Ciktisi';
+$pageTitle = 'Kiralama Çıktısı';
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="print-shell">
   <div class="print-toolbar">
-    <button type="button" class="btn btn-dark" onclick="window.print()">Yazdir</button>
-    <a href="rental_detail.php?id=<?= h((string) $rental['id']) ?>" class="btn btn-outline-dark">Detaya Don</a>
+    <button type="button" class="btn btn-dark" onclick="window.print()">Yazdır</button>
+    <a href="rental_detail.php?id=<?= h((string) $rental['id']) ?>" class="btn btn-outline-dark">Detaya Dön</a>
   </div>
 
   <div class="print-document">
@@ -53,26 +53,26 @@ require __DIR__ . '/includes/header.php';
         <p><strong>Belge No:</strong> <?= h($document['document_number'] ?? '-') ?></p>
         <p><strong>Belge Tarihi:</strong> <?= h(date('d.m.Y H:i')) ?></p>
         <p><strong>Kiralama No:</strong> #<?= h((string) $rental['id']) ?></p>
-        <p><strong>Durum:</strong> <?= (int) ($rental['completed'] ?? 0) === 1 ? 'Teslim Alindi' : 'Aktif Kirada' ?></p>
+        <p><strong>Durum:</strong> <?= (int) ($rental['completed'] ?? 0) === 1 ? 'Teslim Alındı' : 'Aktif Kirada' ?></p>
       </div>
     </div>
 
     <div class="print-section">
-      <h2>Musteri ve Arac Bilgileri</h2>
+      <h2>Müşteri ve Araç Bilgileri</h2>
       <div class="print-grid">
-        <div class="print-item"><span class="print-label">Musteri</span><strong><?= h($rental['customer_name']) ?></strong></div>
+        <div class="print-item"><span class="print-label">Müşteri</span><strong><?= h($rental['customer_name']) ?></strong></div>
         <div class="print-item"><span class="print-label">Telefon</span><strong><?= h($rental['customer_phone']) ?: '-' ?></strong></div>
         <div class="print-item"><span class="print-label">TC Kimlik No</span><strong><?= h($rental['customer_identity_no']) ?: '-' ?></strong></div>
-        <div class="print-item"><span class="print-label">Arac</span><strong><?= h($carLabel ?: '-') ?></strong></div>
-        <div class="print-item"><span class="print-label">Baslangic</span><strong><?= dt($rental['start_date']) ?></strong></div>
-        <div class="print-item"><span class="print-label">Bitis</span><strong><?= dt($rental['end_date']) ?></strong></div>
-        <div class="print-item"><span class="print-label">Cikis KM</span><strong><?= $rental['departure_km'] !== null && $rental['departure_km'] !== '' ? h(number_format((int) $rental['departure_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
-        <div class="print-item"><span class="print-label">Donus KM</span><strong><?= $rental['return_km'] !== null && $rental['return_km'] !== '' ? h(number_format((int) $rental['return_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
+        <div class="print-item"><span class="print-label">Araç</span><strong><?= h($carLabel ?: '-') ?></strong></div>
+        <div class="print-item"><span class="print-label">Başlangıç</span><strong><?= dt($rental['start_date']) ?></strong></div>
+        <div class="print-item"><span class="print-label">Bitiş</span><strong><?= dt($rental['end_date']) ?></strong></div>
+        <div class="print-item"><span class="print-label">Çıkış KM</span><strong><?= $rental['departure_km'] !== null && $rental['departure_km'] !== '' ? h(number_format((int) $rental['departure_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
+        <div class="print-item"><span class="print-label">Dönüş KM</span><strong><?= $rental['return_km'] !== null && $rental['return_km'] !== '' ? h(number_format((int) $rental['return_km'], 0, ',', '.')) . ' km' : '-' ?></strong></div>
       </div>
     </div>
 
     <div class="print-section">
-      <h2>Finansal Ozet</h2>
+      <h2>Finansal Özet</h2>
       <div class="print-financials">
         <div class="print-total-card"><span class="print-label">Toplam Gelir</span><strong><?= money($totals['income']) ?></strong></div>
         <div class="print-total-card"><span class="print-label">Toplam Masraf</span><strong><?= money($totals['expense']) ?></strong></div>
@@ -81,10 +81,10 @@ require __DIR__ . '/includes/header.php';
     </div>
 
     <div class="print-section">
-      <h2>Uzatma Gecmisi</h2>
+      <h2>Uzatma Geçmişi</h2>
       <div class="print-grid">
         <?php if (empty($extensions)): ?>
-        <div class="print-item print-item-full"><strong>Bu kiralama icin uzatma kaydi yok.</strong></div>
+        <div class="print-item print-item-full"><strong>Bu kiralama için uzatma kaydı yok.</strong></div>
         <?php else: ?>
           <?php foreach ($extensions as $index => $extension): ?>
           <?php
@@ -111,8 +111,8 @@ require __DIR__ . '/includes/header.php';
         <div class="text-muted mt-2">Ad Soyad / Imza</div>
       </div>
       <div class="print-signature-box">
-        <strong>Musteri</strong>
-        <div class="text-muted mt-2">Ad Soyad / Imza</div>
+        <strong>Müşteri</strong>
+        <div class="text-muted mt-2">Ad Soyad / İmza</div>
       </div>
     </div>
   </div>

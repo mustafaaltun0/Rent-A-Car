@@ -10,8 +10,7 @@ if (!app_feature_customer_companies_enabled()) {
     auth_redirect('index.php');
 }
 
-ensureCustomerCompanySchema($pdo);
-ensureRentalArchiveSchema($pdo);
+app_ensure_schema($pdo, 'customer_companies', 'rental_archive');
 $companyId = auth_current_company_id();
 
 $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -36,17 +35,30 @@ if ($isActive !== 1) {
     }
 }
 
-$update = $pdo->prepare('UPDATE customer_companies SET is_active = ?, updated_at = NOW() WHERE id = ? AND company_id = ?');
-$update->execute([$isActive === 1 ? 1 : 0, $id, $companyId]);
+try {
+    $pdo->beginTransaction();
 
-auth_audit_log($pdo, 'customer.company_status_changed', $isActive === 1 ? 'Kurumsal musteri tekrar aktif edildi.' : 'Kurumsal musteri pasife alindi.', [
-    'entity_type' => 'customer_company',
-    'entity_id' => $id,
-    'company_id' => $companyId,
-    'metadata' => [
-        'company_name' => (string) ($customerCompany['company_name'] ?? ''),
-        'is_active' => $isActive === 1 ? 1 : 0,
-    ],
-]);
+    $update = $pdo->prepare('UPDATE customer_companies SET is_active = ?, updated_at = NOW() WHERE id = ? AND company_id = ?');
+    $update->execute([$isActive === 1 ? 1 : 0, $id, $companyId]);
+
+    auth_audit_log($pdo, 'customer.company_status_changed', $isActive === 1 ? 'Kurumsal musteri tekrar aktif edildi.' : 'Kurumsal musteri pasife alindi.', [
+        'entity_type' => 'customer_company',
+        'entity_id' => $id,
+        'company_id' => $companyId,
+        'metadata' => [
+            'company_name' => (string) ($customerCompany['company_name'] ?? ''),
+            'is_active' => $isActive === 1 ? 1 : 0,
+        ],
+    ]);
+
+    $pdo->commit();
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    error_log('customer_company_toggle_failed: ' . $exception->getMessage());
+    auth_redirect('customer_companies.php?status=error');
+}
 
 auth_redirect('customer_companies.php?status=status_changed');

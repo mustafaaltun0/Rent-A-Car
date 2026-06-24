@@ -6,8 +6,7 @@ auth_require_permission('rentals.manage');
 auth_require_post_request();
 auth_validate_csrf_request();
 
-ensureRentalExtensionSchema($pdo);
-ensureRentalArchiveSchema($pdo);
+app_ensure_schema($pdo, 'rental_core');
 $companyId = auth_current_company_id();
 $currentUserId = (int) (auth_current_user()['id'] ?? 0);
 
