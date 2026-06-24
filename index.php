@@ -134,6 +134,9 @@ require __DIR__ . '/includes/header.php';
 require __DIR__ . '/includes/nav.php';
 ?>
 <div class="home-page">
+  <div class="alert alert-danger shadow-sm mb-4" role="alert" style="font-size:1rem;">
+    <strong>Test Güncellemesi:</strong> Bu alan Git'e bağlı proje klasöründe 25 Haziran 2026 için eklendi.
+  </div>
   <div class="home-hero mb-4">
     <div class="home-hero-copy">
       <div class="home-hero-label"><?= h(auth_current_user()['company_name'] ?? 'Firma') ?></div>

@@ -1,7 +1,7 @@
 ﻿<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
 <?php $authUser = function_exists('auth_current_user') ? auth_current_user() : null; ?>
 <?php $appBrandName = $authUser['company_name'] ?? 'RentecarWeb'; ?>
-<?php $assetVersion = '20260621-utf8-avatar-flow-01'; ?>
+<?php $assetVersion = '20260624-live-deploy-test-01'; ?>
 <?php $companyLogoUrl = ($authUser && !empty($authUser['company_logo_path']) && function_exists('auth_company_logo_public_url')) ? auth_company_logo_public_url(['company_logo_path' => $authUser['company_logo_path']]) . '?v=' . rawurlencode((string) ($authUser['company_logo_path'] ?? $assetVersion)) : null; ?>
 <?php $headerAvatarUrl = ($authUser && !empty($authUser['avatar_path']) && function_exists('auth_user_avatar_public_url')) ? auth_user_avatar_public_url($authUser) . '?v=' . rawurlencode((string) ($authUser['avatar_path'] ?? $assetVersion)) : null; ?>
 <?php $headerRoleLabel = $authUser ? (function_exists('auth_user_role_label') ? auth_user_role_label($authUser) : ((function_exists('auth_role_label') ? auth_role_label($authUser['role'] ?? null) : ($authUser['role'] ?? '-')))) : null; ?>
@@ -57,7 +57,7 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
       <?php endif; ?>
       <span class="app-brand-copy">
         <span class="app-brand-title"><?= h($appBrandName) ?></span>
-        <span class="app-brand-subtitle">Operasyon Paneli</span>
+        <span class="app-brand-subtitle">Operasyon Paneli • Canlı Test 24 Haz 2026</span>
       </span>
     </span>
     <?php if ($authUser): ?>
