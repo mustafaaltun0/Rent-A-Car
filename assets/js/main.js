@@ -1,6 +1,9 @@
+const APP_BASE_URL = document.documentElement?.dataset?.appBaseUrl || '';
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/rentecarWeb/sw.js').catch(() => {});
+    const normalizedBaseUrl = APP_BASE_URL ? APP_BASE_URL.replace(/\/+$/, '') : '';
+    navigator.serviceWorker.register(`${normalizedBaseUrl}/sw.js`).catch(() => {});
   });
 }
 
@@ -156,6 +159,8 @@ if (carModal) {
   const photoResetButton = carForm?.querySelector('[data-car-photo-reset]');
   let photoPreviewObjectUrl = null;
   let activePointerId = null;
+  let isPhotoTouchDragging = false;
+  let isPhotoMouseDragging = false;
 
   const clampPhotoFocus = (value) => {
     const numeric = Number.parseInt(String(value || '50'), 10);
@@ -267,6 +272,48 @@ if (carModal) {
       activePointerId = null;
       photoDragSurface.classList.remove('is-dragging');
     });
+
+    photoDragSurface.addEventListener('touchstart', (event) => {
+      if (!photoPreview || photoPreview.hidden || event.touches.length === 0) return;
+      isPhotoTouchDragging = true;
+      photoDragSurface.classList.add('is-dragging');
+      const touch = event.touches[0];
+      syncFocusFromPointer(touch.clientX, touch.clientY);
+      event.preventDefault();
+    }, { passive: false });
+
+    photoDragSurface.addEventListener('touchmove', (event) => {
+      if (!isPhotoTouchDragging || event.touches.length === 0) return;
+      const touch = event.touches[0];
+      syncFocusFromPointer(touch.clientX, touch.clientY);
+      event.preventDefault();
+    }, { passive: false });
+
+    const stopPhotoTouchDragging = () => {
+      isPhotoTouchDragging = false;
+      photoDragSurface.classList.remove('is-dragging');
+    };
+
+    photoDragSurface.addEventListener('touchend', stopPhotoTouchDragging);
+    photoDragSurface.addEventListener('touchcancel', stopPhotoTouchDragging);
+
+    photoDragSurface.addEventListener('mousedown', (event) => {
+      if (!photoPreview || photoPreview.hidden) return;
+      isPhotoMouseDragging = true;
+      photoDragSurface.classList.add('is-dragging');
+      syncFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (event) => {
+      if (!isPhotoMouseDragging) return;
+      syncFocusFromPointer(event.clientX, event.clientY);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPhotoMouseDragging = false;
+      photoDragSurface.classList.remove('is-dragging');
+    });
   }
 
   carModal.addEventListener('show.bs.modal', (event) => {
@@ -314,6 +361,8 @@ if (avatarEditorForm) {
   const removeAvatarCheck = avatarEditorForm.querySelector('[name="remove_avatar"]');
   let avatarPreviewObjectUrl = null;
   let activeAvatarPointerId = null;
+  let isAvatarTouchDragging = false;
+  let isAvatarMouseDragging = false;
   let avatarAdjustMode = false;
   const initialAvatarSrc = avatarPreview && !avatarPreview.hidden ? avatarPreview.getAttribute('src') || '' : '';
   const initialAvatarCardSrc = avatarCardPreview && !avatarCardPreview.classList.contains('d-none') ? avatarCardPreview.getAttribute('src') || '' : '';
@@ -507,6 +556,48 @@ if (avatarEditorForm) {
     avatarDragSurface.addEventListener('pointercancel', stopAvatarDragging);
     avatarDragSurface.addEventListener('lostpointercapture', () => {
       activeAvatarPointerId = null;
+      avatarDragSurface.classList.remove('is-dragging');
+    });
+
+    avatarDragSurface.addEventListener('touchstart', (event) => {
+      if (!avatarAdjustMode || !avatarPreview || avatarPreview.hidden || event.touches.length === 0) return;
+      isAvatarTouchDragging = true;
+      avatarDragSurface.classList.add('is-dragging');
+      const touch = event.touches[0];
+      syncAvatarFocusFromPointer(touch.clientX, touch.clientY);
+      event.preventDefault();
+    }, { passive: false });
+
+    avatarDragSurface.addEventListener('touchmove', (event) => {
+      if (!isAvatarTouchDragging || event.touches.length === 0) return;
+      const touch = event.touches[0];
+      syncAvatarFocusFromPointer(touch.clientX, touch.clientY);
+      event.preventDefault();
+    }, { passive: false });
+
+    const stopAvatarTouchDragging = () => {
+      isAvatarTouchDragging = false;
+      avatarDragSurface.classList.remove('is-dragging');
+    };
+
+    avatarDragSurface.addEventListener('touchend', stopAvatarTouchDragging);
+    avatarDragSurface.addEventListener('touchcancel', stopAvatarTouchDragging);
+
+    avatarDragSurface.addEventListener('mousedown', (event) => {
+      if (!avatarAdjustMode || !avatarPreview || avatarPreview.hidden) return;
+      isAvatarMouseDragging = true;
+      avatarDragSurface.classList.add('is-dragging');
+      syncAvatarFocusFromPointer(event.clientX, event.clientY);
+      event.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (event) => {
+      if (!isAvatarMouseDragging) return;
+      syncAvatarFocusFromPointer(event.clientX, event.clientY);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isAvatarMouseDragging = false;
       avatarDragSurface.classList.remove('is-dragging');
     });
   }

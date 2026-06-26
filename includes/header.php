@@ -1,7 +1,18 @@
 ﻿<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
 <?php $authUser = function_exists('auth_current_user') ? auth_current_user() : null; ?>
 <?php $appBrandName = $authUser['company_name'] ?? 'RentecarWeb'; ?>
-<?php $assetVersion = '20260624-live-deploy-test-01'; ?>
+<?php
+$assetVersionCandidates = [
+    __DIR__ . '/../assets/css/style.css',
+    __DIR__ . '/../assets/js/main.js',
+    __DIR__ . '/../assets/js/roles.js',
+];
+$assetVersion = '20260626';
+foreach ($assetVersionCandidates as $assetVersionFile) {
+    $assetVersion = max($assetVersion, (string) (@filemtime($assetVersionFile) ?: 0));
+}
+$appBaseUrl = function_exists('app_base_url') ? app_base_url() : '';
+?>
 <?php $companyLogoUrl = ($authUser && !empty($authUser['company_logo_path']) && function_exists('auth_company_logo_public_url')) ? auth_company_logo_public_url(['company_logo_path' => $authUser['company_logo_path']]) . '?v=' . rawurlencode((string) ($authUser['company_logo_path'] ?? $assetVersion)) : null; ?>
 <?php $headerAvatarUrl = ($authUser && !empty($authUser['avatar_path']) && function_exists('auth_user_avatar_public_url')) ? auth_user_avatar_public_url($authUser) . '?v=' . rawurlencode((string) ($authUser['avatar_path'] ?? $assetVersion)) : null; ?>
 <?php $headerRoleLabel = $authUser ? (function_exists('auth_user_role_label') ? auth_user_role_label($authUser) : ((function_exists('auth_role_label') ? auth_role_label($authUser['role'] ?? null) : ($authUser['role'] ?? '-')))) : null; ?>
@@ -31,7 +42,7 @@ if ($headerNotificationFeedEnabled && isset($pdo) && $pdo instanceof PDO && func
 }
 ?>
 <!doctype html>
-<html lang="tr">
+<html lang="tr" data-app-base-url="<?= h($appBaseUrl) ?>">
 <head>
   <?php if (!headers_sent()) { header('Content-Type: text/html; charset=UTF-8'); } ?>
   <meta charset="utf-8">
