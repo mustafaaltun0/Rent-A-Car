@@ -377,6 +377,14 @@ require __DIR__ . '/includes/nav.php';
                   </div>
                 </div>
                 <div class="car-photo-editor-controls">
+                  <div class="car-photo-nudge-grid" aria-label="Fotoğraf konum ince ayarı">
+                    <button type="button" class="btn btn-outline-dark btn-sm" data-car-photo-nudge="up">Yukarı</button>
+                    <div class="car-photo-nudge-row">
+                      <button type="button" class="btn btn-outline-dark btn-sm" data-car-photo-nudge="left">Sol</button>
+                      <button type="button" class="btn btn-outline-dark btn-sm" data-car-photo-nudge="right">Sağ</button>
+                    </div>
+                    <button type="button" class="btn btn-outline-dark btn-sm" data-car-photo-nudge="down">Aşağı</button>
+                  </div>
                   <div>
                     <label class="form-label d-flex justify-content-between" for="carPhotoFocusX"><span>Sağa / Sola Kaydır</span><strong data-photo-focus-x-label>50%</strong></label>
                     <input id="carPhotoFocusX" name="photo_focus_x" type="range" min="0" max="100" step="1" value="50" class="form-range">

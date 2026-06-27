@@ -332,6 +332,22 @@
   gap: 1rem;
 }
 
+.car-photo-nudge-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.car-photo-nudge-grid > .btn {
+  justify-self: center;
+  min-width: 96px;
+}
+
+.car-photo-nudge-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 @media (min-width: 768px) {
   .car-photo-editor {
     grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);

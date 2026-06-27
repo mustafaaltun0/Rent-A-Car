@@ -157,6 +157,7 @@ if (carModal) {
   const photoFocusYLabel = carForm?.querySelector('[data-photo-focus-y-label]');
   const photoDragSurface = carForm?.querySelector('[data-car-photo-drag-surface]');
   const photoResetButton = carForm?.querySelector('[data-car-photo-reset]');
+  const photoNudgeButtons = carForm ? Array.from(carForm.querySelectorAll('[data-car-photo-nudge]')) : [];
   let photoPreviewObjectUrl = null;
   let activePointerId = null;
   let isPhotoTouchDragging = false;
@@ -173,6 +174,13 @@ if (carModal) {
     photoFocusXInput.value = String(clampPhotoFocus(focusX));
     photoFocusYInput.value = String(clampPhotoFocus(focusY));
     applyPhotoPreviewPosition();
+  };
+
+  const nudgePhotoFocus = (axis, delta) => {
+    if (!photoFocusXInput || !photoFocusYInput) return;
+    const nextX = axis === 'x' ? clampPhotoFocus(Number(photoFocusXInput.value) + delta) : clampPhotoFocus(photoFocusXInput.value);
+    const nextY = axis === 'y' ? clampPhotoFocus(Number(photoFocusYInput.value) + delta) : clampPhotoFocus(photoFocusYInput.value);
+    setPhotoFocus(nextX, nextY);
   };
 
   const applyPhotoPreviewPosition = () => {
@@ -243,6 +251,16 @@ if (carModal) {
       setPhotoFocus(50, 50);
     });
   }
+
+  photoNudgeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const direction = button.getAttribute('data-car-photo-nudge') || '';
+      if (direction === 'left') nudgePhotoFocus('x', -5);
+      if (direction === 'right') nudgePhotoFocus('x', 5);
+      if (direction === 'up') nudgePhotoFocus('y', -5);
+      if (direction === 'down') nudgePhotoFocus('y', 5);
+    });
+  });
 
   if (photoDragSurface) {
     photoPreview?.addEventListener('dragstart', (event) => {
