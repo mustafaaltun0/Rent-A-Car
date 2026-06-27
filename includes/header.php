@@ -1,4 +1,4 @@
-﻿<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
+<?php if (!isset($pageTitle)) { $pageTitle = 'RentecarWeb'; } ?>
 <?php $authUser = function_exists('auth_current_user') ? auth_current_user() : null; ?>
 <?php $appBrandName = $authUser['company_name'] ?? 'RentecarWeb'; ?>
 <?php
