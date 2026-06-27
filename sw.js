@@ -1,9 +1,11 @@
-const CACHE_NAME = 'rentecarweb-v1';
+const SW_SCOPE_PATH = new URL(self.location.href).pathname.replace(/\/sw\.js$/, '');
+const APP_PREFIX = SW_SCOPE_PATH === '/' ? '' : SW_SCOPE_PATH;
+const CACHE_NAME = 'rentecarweb-v2';
 const OFFLINE_URLS = [
-  '/rentecarWeb/index.php',
-  '/rentecarWeb/assets/css/style.css',
-  '/rentecarWeb/assets/js/main.js',
-  '/rentecarWeb/assets/icons/app-icon.svg'
+  `${APP_PREFIX}/index.php`,
+  `${APP_PREFIX}/assets/css/style.css`,
+  `${APP_PREFIX}/assets/js/main.js`,
+  `${APP_PREFIX}/assets/icons/app-icon.svg`
 ];
 
 self.addEventListener('install', (event) => {
@@ -33,7 +35,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
-  const isAppRequest = url.origin === self.location.origin && url.pathname.startsWith('/rentecarWeb/');
+  const isAppRequest = url.origin === self.location.origin
+    && (APP_PREFIX === '' ? true : url.pathname.startsWith(`${APP_PREFIX}/`));
 
   if (!isAppRequest) {
     return;
@@ -47,7 +50,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('/rentecarWeb/index.php')))
+        .catch(() => caches.match(request).then((cached) => cached || caches.match(`${APP_PREFIX}/index.php`)))
     );
     return;
   }
