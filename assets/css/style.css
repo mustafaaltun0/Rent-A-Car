@@ -256,6 +256,8 @@
   object-fit: cover;
   object-position: var(--car-photo-position, center center);
   display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .car-photo-thumb {

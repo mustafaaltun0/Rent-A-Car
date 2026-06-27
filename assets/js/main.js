@@ -189,6 +189,7 @@ if (carModal) {
 
     const hasSource = typeof src === 'string' && src.trim() !== '';
     if (hasSource) {
+      photoPreview.draggable = false;
       photoPreview.src = src;
       photoPreview.hidden = false;
       photoEmpty.hidden = true;
@@ -244,6 +245,10 @@ if (carModal) {
   }
 
   if (photoDragSurface) {
+    photoPreview?.addEventListener('dragstart', (event) => {
+      event.preventDefault();
+    });
+
     photoDragSurface.addEventListener('pointerdown', (event) => {
       if (!photoPreview || photoPreview.hidden) return;
       activePointerId = event.pointerId;
