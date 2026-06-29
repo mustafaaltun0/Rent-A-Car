@@ -1,6 +1,6 @@
 const SW_SCOPE_PATH = new URL(self.location.href).pathname.replace(/\/sw\.js$/, '');
 const APP_PREFIX = SW_SCOPE_PATH === '/' ? '' : SW_SCOPE_PATH;
-const CACHE_NAME = 'rentecarweb-v2';
+const CACHE_NAME = 'rentecarweb-v3';
 const OFFLINE_URLS = [
   `${APP_PREFIX}/index.php`,
   `${APP_PREFIX}/assets/css/style.css`,

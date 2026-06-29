@@ -376,7 +376,7 @@ require __DIR__ . '/includes/nav.php';
                     <div class="car-photo-editor-empty" data-car-photo-empty>Fotoğraf seçince burada önizleme görünecek.</div>
                   </div>
                 </div>
-                <div class="car-photo-editor-controls">
+                <div class="car-photo-editor-controls" data-car-photo-editor-build="20260629-1">
                   <div class="car-photo-nudge-grid" aria-label="Fotoğraf konum ince ayarı">
                     <button type="button" class="btn btn-outline-dark btn-sm" data-car-photo-nudge="up">Yukarı</button>
                     <div class="car-photo-nudge-row">
