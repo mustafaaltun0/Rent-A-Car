@@ -27,6 +27,17 @@ if (!function_exists('str_ends_with')) {
     }
 }
 
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return strpos($haystack, $needle) !== false;
+    }
+}
+
 if (!function_exists('app_load_env_file')) {
     function app_load_env_file(string $filePath): void
     {
@@ -174,6 +185,55 @@ if (!function_exists('app_run_legacy_data_migrations_on_boot')) {
     function app_run_legacy_data_migrations_on_boot(): bool
     {
         return app_env_bool('APP_RUN_LEGACY_DATA_MIGRATIONS_ON_BOOT', false);
+    }
+}
+
+if (!function_exists('app_runtime_schema_changes_enabled')) {
+    function app_runtime_schema_changes_enabled(): bool
+    {
+        $configured = app_env_value('APP_RUNTIME_SCHEMA_CHANGES');
+        if ($configured !== null) {
+            return app_env_bool('APP_RUNTIME_SCHEMA_CHANGES', false);
+        }
+
+        return in_array(app_env(), ['local', 'development'], true);
+    }
+}
+
+if (!function_exists('app_legacy_company_backfill_enabled')) {
+    function app_legacy_company_backfill_enabled(): bool
+    {
+        return app_env_bool('APP_LEGACY_COMPANY_BACKFILL', false);
+    }
+}
+
+if (!function_exists('app_schema_maintenance_script_names')) {
+    function app_schema_maintenance_script_names(): array
+    {
+        return [
+            'setup.php',
+            'setup_admin.php',
+            'migrations.php',
+            'schema_migrations_run.php',
+        ];
+    }
+}
+
+if (!function_exists('app_current_script_name')) {
+    function app_current_script_name(): string
+    {
+        return basename((string) ($_SERVER['PHP_SELF'] ?? $_SERVER['SCRIPT_NAME'] ?? ''));
+    }
+}
+
+if (!function_exists('app_schema_changes_allowed')) {
+    function app_schema_changes_allowed(): bool
+    {
+        if (app_runtime_schema_changes_enabled()) {
+            return true;
+        }
+
+        return in_array(app_current_script_name(), app_schema_maintenance_script_names(), true);
     }
 }
 

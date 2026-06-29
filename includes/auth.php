@@ -42,5 +42,6 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/modules/auth_core_helpers.php';
 require_once __DIR__ . '/modules/auth_operations_helpers.php';
+require_once __DIR__ . '/modules/auth_tenant_helpers.php';
 require_once __DIR__ . '/schema_helpers.php';
 require_once __DIR__ . '/modules/auth_session_helpers.php';

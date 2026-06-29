@@ -15,7 +15,12 @@ function app_base_url(): string
         return '';
     }
 
-    $directory = trim(str_replace('\\', '/', dirname($scriptName)), '/.');
+    $directory = str_replace('\\', '/', dirname($scriptName));
+    if (basename($directory) === 'actions') {
+        $directory = str_replace('\\', '/', dirname($directory));
+    }
+
+    $directory = trim($directory, '/.');
     return $directory === '' ? '' : '/' . $directory;
 }
 

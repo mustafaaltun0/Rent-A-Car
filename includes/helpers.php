@@ -117,3 +117,4 @@ require_once __DIR__ . '/modules/ledger_helpers.php';
 require_once __DIR__ . '/modules/rental_helpers.php';
 require_once __DIR__ . '/modules/notification_helpers.php';
 require_once __DIR__ . '/modules/pagination_helpers.php';
+require_once __DIR__ . '/modules/tenant_audit_helpers.php';

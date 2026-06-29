@@ -2,6 +2,11 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/filokont/public_html
     - /bin/mkdir -p $DEPLOYPATH
+    - /bin/mkdir -p $DEPLOYPATH/storage
+    - /bin/mkdir -p $DEPLOYPATH/storage/car-photos
+    - /bin/mkdir -p $DEPLOYPATH/storage/company-logos
+    - /bin/mkdir -p $DEPLOYPATH/storage/user-avatars
     - /bin/cp .htaccess $DEPLOYPATH/.htaccess
+    - /bin/cp storage/.htaccess $DEPLOYPATH/storage/.htaccess
     - /bin/cp -R actions assets config includes tools $DEPLOYPATH
-    - /bin/cp *.php *.js *.sql *.md *.ini *.webmanifest $DEPLOYPATH
+    - /bin/cp *.php *.js *.webmanifest $DEPLOYPATH
